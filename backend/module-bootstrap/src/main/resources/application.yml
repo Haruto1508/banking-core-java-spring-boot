@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: core-banking-system
+  profiles:
+    active: dev
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    default-property-inclusion: non_null
+
+server:
+  port: 8080
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: method
+
+banking:
+  security:
+    jwt:
+      secret-key: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+      access-token-expiration-ms: ${JWT_ACCESS_EXPIRATION_MS:900000}
+      refresh-token-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
+    login:
+      max-failed-attempts: 5
+      lock-duration-minutes: 15

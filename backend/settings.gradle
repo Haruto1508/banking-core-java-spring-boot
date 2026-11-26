@@ -1,0 +1,12 @@
+rootProject.name = 'core-banking-system'
+
+include 'module-common'
+include 'module-auth'
+include 'module-customer'
+include 'module-account'
+include 'module-transaction'
+include 'module-ledger'
+include 'module-payment'
+include 'module-notification'
+include 'module-audit'
+include 'module-bootstrap'

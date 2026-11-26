@@ -1,0 +1,7 @@
+dependencies {
+    implementation project(':module-common')
+    implementation project(':module-account')
+    implementation project(':module-transaction')
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+}

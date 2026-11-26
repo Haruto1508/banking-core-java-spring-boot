@@ -1,0 +1,57 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version "${springBootVersion}" apply false
+    id 'io.spring.dependency-management' version "${springDependencyManagementVersion}" apply false
+}
+
+allprojects {
+    group = 'com.banking.core'
+    version = '1.0.0-SNAPSHOT'
+
+    repositories {
+        mavenCentral()
+    }
+}
+
+subprojects {
+    apply plugin: 'java-library'
+    apply plugin: 'io.spring.dependency-management'
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(21)
+        }
+    }
+
+    dependencyManagement {
+        imports {
+            mavenBom org.springframework.boot.gradle.plugin.SpringBootPlugin.BOM_COORDINATES
+            mavenBom "org.testcontainers:testcontainers-bom:${testcontainersVersion}"
+        }
+    }
+
+    dependencies {
+        // Lombok & MapStruct
+        compileOnly "org.projectlombok:lombok:${lombokVersion}"
+        annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+        annotationProcessor "org.mapstruct:mapstruct-processor:${mapstructVersion}"
+        annotationProcessor "org.projectlombok:lombok-mapstruct-binding:${lombokMapstructBindingVersion}"
+
+        testCompileOnly "org.projectlombok:lombok:${lombokVersion}"
+        testAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+
+        // Common test dependencies
+        testImplementation 'org.springframework.boot:spring-boot-starter-test'
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testImplementation 'org.mockito:mockito-junit-jupiter'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.compilerArgs.add('-parameters')
+    }
+
+    tasks.named('test') {
+        useJUnitPlatform()
+    }
+}
