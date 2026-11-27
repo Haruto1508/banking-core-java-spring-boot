@@ -5,7 +5,6 @@ import com.banking.core.account.exposed.AccountSummaryDto;
 import com.banking.core.audit.exposed.AuditApi;
 import com.banking.core.auth.domain.enums.Role;
 import com.banking.core.common.constant.BankingConstants;
-import com.banking.core.common.dto.PageResponse;
 import com.banking.core.common.exception.ErrorCode;
 import com.banking.core.common.exception.ResourceNotFoundException;
 import com.banking.core.customer.exposed.CustomerApi;
@@ -22,16 +21,12 @@ import com.banking.core.transaction.domain.enums.TransactionStatus;
 import com.banking.core.transaction.domain.enums.TransactionType;
 import com.banking.core.transaction.domain.exception.TransactionException;
 import com.banking.core.transaction.domain.repository.TransactionRepository;
-import com.banking.core.transaction.exposed.TransactionApi;
-import com.banking.core.transaction.exposed.TransactionSummaryDto;
 import com.banking.core.transaction.service.IdempotencyService;
 import com.banking.core.transaction.service.TransactionService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,14 +40,16 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Core transaction processing engine implementing TransactionService and TransactionApi.
+ * Command processing engine implementing {@link TransactionService}.
  * <p>
  * Guarantees ACID properties, deadlock-free pessimistic locking, idempotency,
  * and synchronized double-entry ledger postings.
+ * Read-only queries live in {@link TransactionQueryServiceImpl} and cross-module
+ * contracts live in {@link TransactionApiImpl}.
  */
 @Service
 @RequiredArgsConstructor
-public class TransactionServiceImpl implements TransactionService, TransactionApi {
+public class TransactionServiceImpl implements TransactionService {
 
     private static final Logger log = LoggerFactory.getLogger(TransactionServiceImpl.class);
     private static final SecureRandom RANDOM_GENERATOR = new SecureRandom();
@@ -268,121 +265,11 @@ public class TransactionServiceImpl implements TransactionService, TransactionAp
         return mapToResponse(savedReversal);
     }
 
-    /**
-     * Fetches a single transaction by UUID with IDOR check for CUSTOMER role.
-     */
-    @Override
-    @Transactional(readOnly = true)
-    public TransactionResponse getTransactionById(UUID transactionId, UUID requesterUserId, Role requesterRole) {
-        Transaction transaction = transactionRepository.findById(transactionId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        ErrorCode.RESOURCE_NOT_FOUND, "Transaction not found: " + transactionId));
-
-        if (requesterRole == Role.CUSTOMER) {
-            verifyTransactionAccessForCustomer(transaction, requesterUserId);
-        }
-
-        return mapToResponse(transaction);
-    }
-
-    /**
-     * Queries paginated transaction history for an account with IDOR check for CUSTOMER role.
-     */
-    @Override
-    @Transactional(readOnly = true)
-    public PageResponse<TransactionResponse> getTransactionHistory(
-            UUID accountId,
-            TransactionType type,
-            TransactionStatus status,
-            Pageable pageable,
-            UUID requesterUserId,
-            Role requesterRole) {
-
-        AccountSummaryDto account = accountApi.findAccountById(accountId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        ErrorCode.ACCOUNT_NOT_FOUND, "Account not found: " + accountId));
-
-        if (requesterRole == Role.CUSTOMER) {
-            verifyAccountOwnershipForCustomer(account, requesterUserId);
-        }
-
-        Page<TransactionResponse> page = transactionRepository
-                .findHistoryByAccountId(accountId, type, status, pageable)
-                .map(this::mapToResponse);
-
-        return PageResponse.from(page);
-    }
-
     // =========================================================================
-    // TransactionApi — cross-module interface
+    // Package-private & Private helpers
     // =========================================================================
 
-    /**
-     * Cross-module: looks up a transaction summary by UUID.
-     */
-    @Override
-    @Transactional(readOnly = true)
-    public Optional<TransactionSummaryDto> findTransactionById(UUID transactionId) {
-        return transactionRepository.findById(transactionId).map(this::mapToSummary);
-    }
-
-    /**
-     * Cross-module: executes an internal transfer on behalf of another module (e.g. Payment).
-     */
-    @Override
-    @Transactional
-    public TransactionSummaryDto executeInternalTransfer(
-            UUID sourceAccountId,
-            UUID targetAccountId,
-            BigDecimal amount,
-            String currency,
-            String description,
-            String idempotencyKey) {
-
-        TransactionResponse response = executeTransferCore(
-                sourceAccountId, targetAccountId, amount, currency, description,
-                idempotencyKey, null, Role.ADMIN);
-
-        return new TransactionSummaryDto(
-                response.id(),
-                response.transactionRef(),
-                response.sourceAccountId(),
-                response.targetAccountId(),
-                response.transactionType(),
-                response.amount(),
-                response.currency(),
-                response.status(),
-                response.createdAt()
-        );
-    }
-
-    /**
-     * Cross-module: reverses a transaction on behalf of another module (e.g. Payment Refund).
-     */
-    @Override
-    @Transactional
-    public TransactionSummaryDto reverseTransaction(UUID originalTransactionId, String reason) {
-        TransactionResponse response = reverse(
-                originalTransactionId, new ReverseTransactionRequest(reason), null);
-
-        return new TransactionSummaryDto(
-                response.id(),
-                response.transactionRef(),
-                response.sourceAccountId(),
-                response.targetAccountId(),
-                response.transactionType(),
-                response.amount(),
-                response.currency(),
-                response.status(),
-                response.createdAt()
-        );
-    }
-
-    // =========================================================================
-    // Private helpers
-    // =========================================================================
-
-    private TransactionResponse executeTransferCore(
+    TransactionResponse executeTransferCore(
             UUID sourceAccountId,
             UUID targetAccountId,
             BigDecimal amount,
@@ -499,25 +386,6 @@ public class TransactionServiceImpl implements TransactionService, TransactionAp
         }
     }
 
-    private void verifyTransactionAccessForCustomer(Transaction transaction, UUID requesterUserId) {
-        CustomerSummaryDto ownCustomer = customerApi.findCustomerByUserId(requesterUserId)
-                .orElseThrow(() -> new AccessDeniedException("No customer profile linked to current user"));
-
-        boolean ownsSource = transaction.getSourceAccountId() != null &&
-                accountApi.findAccountById(transaction.getSourceAccountId())
-                        .map(acc -> ownCustomer.id().equals(acc.customerId()))
-                        .orElse(false);
-
-        boolean ownsTarget = transaction.getTargetAccountId() != null &&
-                accountApi.findAccountById(transaction.getTargetAccountId())
-                        .map(acc -> ownCustomer.id().equals(acc.customerId()))
-                        .orElse(false);
-
-        if (!ownsSource && !ownsTarget) {
-            throw new AccessDeniedException("Customers can only view their own transactions");
-        }
-    }
-
     private String generateUniqueTransactionRef() {
         String datePart = LocalDate.now().format(TXN_DATE_FORMAT);
         for (int attempt = 0; attempt < 5; attempt++) {
@@ -532,34 +400,6 @@ public class TransactionServiceImpl implements TransactionService, TransactionAp
     }
 
     private TransactionResponse mapToResponse(Transaction txn) {
-        return new TransactionResponse(
-                txn.getId(),
-                txn.getTransactionRef(),
-                txn.getIdempotencyKey(),
-                txn.getSourceAccountId(),
-                txn.getTargetAccountId(),
-                txn.getTransactionType(),
-                txn.getAmount(),
-                txn.getCurrency(),
-                txn.getStatus(),
-                txn.getFailureReason(),
-                txn.getDescription(),
-                txn.getCreatedAt(),
-                txn.getUpdatedAt()
-        );
-    }
-
-    private TransactionSummaryDto mapToSummary(Transaction txn) {
-        return new TransactionSummaryDto(
-                txn.getId(),
-                txn.getTransactionRef(),
-                txn.getSourceAccountId(),
-                txn.getTargetAccountId(),
-                txn.getTransactionType(),
-                txn.getAmount(),
-                txn.getCurrency(),
-                txn.getStatus(),
-                txn.getCreatedAt()
-        );
+        return TransactionMapper.toResponse(txn);
     }
 }

@@ -10,6 +10,7 @@ import com.banking.core.transaction.api.dto.request.WithdrawalRequest;
 import com.banking.core.transaction.api.dto.response.TransactionResponse;
 import com.banking.core.transaction.domain.enums.TransactionStatus;
 import com.banking.core.transaction.domain.enums.TransactionType;
+import com.banking.core.transaction.service.TransactionQueryService;
 import com.banking.core.transaction.service.TransactionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,7 @@ import java.util.UUID;
 public class TransactionController {
 
     private final TransactionService transactionService;
+    private final TransactionQueryService transactionQueryService;
 
     /**
      * Teller cash deposit into a customer account. Only STAFF and ADMIN may perform deposits.
@@ -102,7 +104,7 @@ public class TransactionController {
             @PathVariable UUID transactionId,
             @AuthenticationPrincipal BankingUserDetails currentUser) {
 
-        TransactionResponse response = transactionService.getTransactionById(
+        TransactionResponse response = transactionQueryService.getTransactionById(
                 transactionId, currentUser.getUserId(), currentUser.getRole());
         return ApiResponse.success(response);
     }
@@ -120,7 +122,7 @@ public class TransactionController {
             @PageableDefault(size = 20) Pageable pageable,
             @AuthenticationPrincipal BankingUserDetails currentUser) {
 
-        PageResponse<TransactionResponse> history = transactionService.getTransactionHistory(
+        PageResponse<TransactionResponse> history = transactionQueryService.getTransactionHistory(
                 accountId, type, status, pageable, currentUser.getUserId(), currentUser.getRole());
         return ApiResponse.success(history);
     }
