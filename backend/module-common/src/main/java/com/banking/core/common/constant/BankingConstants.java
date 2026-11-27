@@ -38,4 +38,5 @@ public final class BankingConstants {
      * Ledger special system account identifier for cash/vault operations.
      */
     public static final String SYSTEM_VAULT_ACCOUNT_NUMBER = "SYS-GL-VAULT-001";
+    public static final java.util.UUID SYSTEM_VAULT_ACCOUNT_ID = java.util.UUID.fromString("00000000-0000-0000-0000-000000000001");
 }

@@ -1,15 +1,17 @@
 spring:
   application:
     name: core-banking-system
+  config:
+    import: optional:file:.env[.properties],optional:file:../.env[.properties]
   profiles:
-    active: dev
+    active: ${SPRING_PROFILES_ACTIVE:dev}
   jackson:
     serialization:
       write-dates-as-timestamps: false
     default-property-inclusion: non_null
 
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
   shutdown: graceful
 
 management:
@@ -38,5 +40,5 @@ banking:
       access-token-expiration-ms: ${JWT_ACCESS_EXPIRATION_MS:900000}
       refresh-token-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
     login:
-      max-failed-attempts: 5
-      lock-duration-minutes: 15
+      max-failed-attempts: ${LOGIN_MAX_FAILED_ATTEMPTS:5}
+      lock-duration-minutes: ${LOGIN_LOCK_DURATION_MINUTES:15}

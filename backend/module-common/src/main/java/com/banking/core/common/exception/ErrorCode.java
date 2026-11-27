@@ -26,6 +26,9 @@ public enum ErrorCode {
 
     // Account & Customer
     CUSTOMER_ALREADY_EXISTS("ERR_CUS_001", "Customer already exists with given identity number or email", HttpStatus.CONFLICT),
+    CUSTOMER_NOT_FOUND("ERR_CUS_002", "Customer profile not found", HttpStatus.NOT_FOUND),
+    CUSTOMER_ALREADY_LINKED("ERR_CUS_003", "User already has an associated customer profile", HttpStatus.CONFLICT),
+    CUSTOMER_INVALID_STATUS("ERR_CUS_004", "Customer is not in a valid status for this operation", HttpStatus.UNPROCESSABLE_ENTITY),
     ACCOUNT_NOT_FOUND("ERR_ACC_001", "Bank account not found", HttpStatus.NOT_FOUND),
     ACCOUNT_FROZEN("ERR_ACC_002", "Bank account is frozen and cannot process debit transactions", HttpStatus.UNPROCESSABLE_ENTITY),
     ACCOUNT_CLOSED("ERR_ACC_003", "Bank account is closed", HttpStatus.UNPROCESSABLE_ENTITY),

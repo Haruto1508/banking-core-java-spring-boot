@@ -18,10 +18,12 @@ logs/
 *.temp
 
 # Secrets & Environment Files
+.env
 *.env
 *.env.local
 *.env.*.local
 !.env.example
+!backend/.env.example
 
 # ====================================================================
 # Java & Gradle (Root & Backend)
