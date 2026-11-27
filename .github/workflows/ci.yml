@@ -21,7 +21,7 @@ jobs:
           distribution: 'temurin'
 
       - name: Grant execute permission for gradlew
-        run: chmod +x backend/gradlew
+        run: chmod +x backend/gradlew gateway/gradlew
 
       - name: Cache Gradle packages
         uses: actions/cache@v4
@@ -29,10 +29,14 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('backend/**/*.gradle*', 'backend/gradle/wrapper/gradle-wrapper.properties') }}
+          key: ${{ runner.os }}-gradle-${{ hashFiles('backend/**/*.gradle*', 'backend/gradle/wrapper/gradle-wrapper.properties', 'gateway/**/*.gradle*') }}
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: Build and run all unit & integration tests
+      - name: Build and run Core Banking tests
         working-directory: backend
+        run: ./gradlew test --no-daemon
+
+      - name: Build and run Edge Gateway tests
+        working-directory: gateway
         run: ./gradlew test --no-daemon

@@ -1,0 +1,81 @@
+server:
+  port: ${GATEWAY_PORT:8081}
+
+spring:
+  application:
+    name: core-banking-gateway
+  config:
+    import: optional:file:.env[.properties]
+  cloud:
+    gateway:
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins:
+              - ${FRONTEND_ORIGIN:http://localhost:5173}
+              - "http://localhost:3000"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+              - OPTIONS
+            allowedHeaders:
+              - "*"
+            exposedHeaders:
+              - "X-Correlation-Id"
+              - "Retry-After"
+            allowCredentials: true
+            maxAge: 3600
+      routes:
+        - id: core-banking-auth
+          uri: ${CORE_BANKING_URL:http://localhost:8080}
+          predicates:
+            - Path=/api/v1/auth/**
+
+        - id: core-banking-customers
+          uri: ${CORE_BANKING_URL:http://localhost:8080}
+          predicates:
+            - Path=/api/v1/customers/**
+
+        - id: core-banking-accounts
+          uri: ${CORE_BANKING_URL:http://localhost:8080}
+          predicates:
+            - Path=/api/v1/accounts/**
+
+        - id: core-banking-transactions
+          uri: ${CORE_BANKING_URL:http://localhost:8080}
+          predicates:
+            - Path=/api/v1/transactions/**
+
+        - id: core-banking-payments
+          uri: ${CORE_BANKING_URL:http://localhost:8080}
+          predicates:
+            - Path=/api/v1/payments/**
+
+        - id: core-banking-notifications
+          uri: ${CORE_BANKING_URL:http://localhost:8080}
+          predicates:
+            - Path=/api/v1/notifications/**
+
+        - id: core-banking-audit
+          uri: ${CORE_BANKING_URL:http://localhost:8080}
+          predicates:
+            - Path=/api/v1/audit-logs/**
+
+        - id: core-banking-reconciliation
+          uri: ${CORE_BANKING_URL:http://localhost:8080}
+          predicates:
+            - Path=/api/v1/reconciliation/**
+
+        - id: core-banking-health
+          uri: ${CORE_BANKING_URL:http://localhost:8080}
+          predicates:
+            - Path=/api/v1/health
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway

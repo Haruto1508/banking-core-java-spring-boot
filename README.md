@@ -10,7 +10,8 @@ The backend is engineered as a **Modular Monolith** to guarantee **ACID transact
 
 ```mermaid
 flowchart TD
-    Client["Client / Swagger UI / Postman"] --> Security["Spring Security 6 + JWT Filter"]
+    Client["Client / Frontend / Swagger UI"] --> Gateway["Edge API Gateway (Spring Cloud Gateway :8081)"]
+    Gateway --> Security["Spring Security 6 + JWT Filter (:8080)"]
     Security --> Controllers["REST Controllers (/api/v1/*)"]
 
     subgraph ModularMonolith ["Core Banking Modular Monolith (module-bootstrap)"]
@@ -41,7 +42,8 @@ flowchart TD
 
 ```text
 BankingCore/
-├── .github/workflows/ci.yml      # GitHub Actions CI (JDK 21 + Gradle test)
+├── .github/workflows/ci.yml      # GitHub Actions CI (JDK 21 + Gradle test for backend & gateway)
+├── gateway/                      # Edge Microservice (Spring Cloud Gateway :8081 -> :8080, CORS, X-Correlation-Id)
 ├── backend/
 │   ├── module-common/            # BaseAuditEntity, ErrorCodes, ApiResponse, Financial Constants
 │   ├── module-auth/              # Spring Security 6, JWT, Refresh Token Rotation, Account Locking, RBAC
