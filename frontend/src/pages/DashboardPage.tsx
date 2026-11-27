@@ -1,26 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
 import {
   ArrowDownLeft,
-  ArrowLeftRight,
   ArrowUpRight,
-  BarChart3,
-  Check,
+  ChevronDown,
+  ChevronLeft,
   ChevronRight,
-  Copy,
-  CreditCard,
-  Eye,
-  EyeOff,
-  Gift,
-  QrCode,
-  Radio,
-  ShieldCheck,
-  Sparkles,
-  Store,
-  TrendingUp,
-  Wallet,
-  Zap,
+  FileText,
+  Filter,
+  Lock,
+  MoreHorizontal,
+  Send,
+  ShoppingBag,
+  Tv,
+  Utensils,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { accountApi, transactionApi } from '../api/bankingApi';
@@ -30,36 +23,15 @@ import { VietQRModal } from '../components/VietQRModal';
 
 export const DashboardPage: React.FC = () => {
   const { user, customer } = useAuth();
-  const { t } = useTranslation();
 
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<TransactionRecord[]>([]);
+  const [selectedRowIndex, setSelectedRowIndex] = useState<number>(1);
   const [hideBalance, setHideBalance] = useState(false);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
   const [selectedAccForQr, setSelectedAccForQr] = useState<BankAccount | null>(null);
-  const [activeAccIdx, setActiveAccIdx] = useState(0);
-
-  const QUICK_ACTIONS = [
-    { to: '/transfer', icon: ArrowLeftRight, labelKey: 'quickActions.transfer', color: 'from-sky-500 to-blue-600', shadow: 'shadow-sky-500/20' },
-    { to: '/seller', icon: Store, labelKey: 'nav.sellerHub', color: 'from-emerald-500 to-teal-600', shadow: 'shadow-emerald-500/20' },
-    { to: '/sepay', icon: Radio, labelKey: 'quickActions.sepay', color: 'from-blue-600 to-indigo-600', shadow: 'shadow-blue-500/20' },
-    { to: '/payments', icon: QrCode, labelKey: 'quickActions.payments', color: 'from-cyan-500 to-teal-500', shadow: 'shadow-cyan-500/20' },
-    { to: '/accounts', icon: CreditCard, labelKey: 'quickActions.accounts', color: 'from-indigo-500 to-violet-600', shadow: 'shadow-indigo-500/20' },
-  ];
-
-  const SERVICES = [
-    { icon: Zap, labelKey: 'services.electricity', color: 'bg-amber-50 text-amber-600 border border-amber-200/80' },
-    { icon: Wallet, labelKey: 'services.water', color: 'bg-sky-50 text-sky-600 border border-sky-200/80' },
-    { icon: Gift, labelKey: 'services.rewards', color: 'bg-rose-50 text-rose-600 border border-rose-200/80' },
-    { icon: ShieldCheck, labelKey: 'services.insurance', color: 'bg-emerald-50 text-emerald-600 border border-emerald-200/80' },
-    { icon: BarChart3, labelKey: 'services.invest', color: 'bg-purple-50 text-purple-600 border border-purple-200/80' },
-    { icon: TrendingUp, labelKey: 'services.savings', color: 'bg-blue-50 text-blue-600 border border-blue-200/80' },
-  ];
 
   useEffect(() => {
     const loadData = async () => {
-      setLoading(true);
       try {
         if (customer?.id) {
           const accRes = await accountApi.getByCustomer(customer.id);
@@ -70,415 +42,606 @@ export const DashboardPage: React.FC = () => {
             setRecentTransactions(txRes.data.data.content);
           }
         }
-      } catch { /* noop */ } finally { setLoading(false); }
+      } catch {
+        /* noop */
+      }
     };
     loadData();
   }, [customer?.id]);
 
-  const primaryAcc = accounts[activeAccIdx] ?? accounts[0];
-  const totalVnd = accounts.filter(a => a.currency === 'VND' && a.status !== 'CLOSED').reduce((s, a) => s + Number(a.balance), 0);
-  const totalUsd = accounts.filter(a => a.currency === 'USD' && a.status !== 'CLOSED').reduce((s, a) => s + Number(a.balance), 0);
+  const primaryAcc = accounts[0];
 
-  const copyText = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedId(text);
-    setTimeout(() => setCopiedId(null), 1500);
-  };
+  // Mock table products aligned with the screenshot
+  const tableProducts = [
+    {
+      id: '01',
+      name: 'Napas247 Current Account',
+      sub: accounts[0]?.accountNumber || 'ACC-DEMO-001 · Primary Account',
+      price: accounts[0] ? formatCurrency(Number(accounts[0].balance), accounts[0].currency) : '$19,000.89',
+      change: '-4.2%',
+      isPositive: false,
+      color: 'from-amber-400 to-orange-500',
+    },
+    {
+      id: '02',
+      name: 'Vault Gold Savings',
+      sub: 'ACC-SAVINGS-002 · Định kỳ 12 tháng',
+      price: '$7,500.98',
+      change: '-0.3%',
+      isPositive: false,
+      color: 'from-blue-500 to-indigo-600',
+    },
+    {
+      id: '03',
+      name: 'SePay VietQR Hub Account',
+      sub: 'ACC-SEPAY-003 · Thanh toán Napas tự động',
+      price: '$3,010.50',
+      change: '-11.1%',
+      isPositive: false,
+      color: 'from-teal-400 to-emerald-500',
+    },
+    {
+      id: '04',
+      name: 'Visa Signature Credit',
+      sub: 'Hạn mức chi tiêu tín dụng 50.000.000 ₫',
+      price: '$6,310.11',
+      change: '+3.6%',
+      isPositive: true,
+      color: 'from-sky-400 to-blue-500',
+    },
+  ];
 
   return (
     <div className="space-y-6">
-      {/* ─── Greeting Row ─── */}
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-2 mb-0.5">
-            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="text-xs font-semibold text-emerald-600">{t('common.systemActive')}</span>
-          </div>
-          <h1 className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">
-            {t('dashboard.greeting')}, {customer?.fullName?.split(' ').slice(-1)[0] || user?.username} 👋
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5 font-medium">
-            {customer ? `${t('dashboard.cif')}: ${customer.customerNumber}` : t('dashboard.welcome')}
-          </p>
-        </div>
-        <button
-          onClick={() => accounts[0] && setSelectedAccForQr(accounts[0])}
-          className="shrink-0 h-11 w-11 rounded-2xl bg-white hover:bg-sky-50 text-sky-600 flex items-center justify-center transition-colors cursor-pointer border border-sky-200/90 shadow-xs"
-          title={t('dashboard.myQrBtn')}
-        >
-          <QrCode className="h-5 w-5" />
-        </button>
-      </div>
-
-      {/* ─── KYC Onboarding Alert ─── */}
-      {!loading && !customer && user?.role === 'CUSTOMER' && (
-        <div className="rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 p-4 flex items-center justify-between gap-3 shadow-xs">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
-              <Sparkles className="h-5 w-5" />
+      {/* ─── Main Grid: 2 Columns matching the reference screenshot ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* ══════════════════════════════════════════════════════════════
+            LEFT COLUMN (4 Cols): Progress, Digital Card, Transactions
+           ══════════════════════════════════════════════════════════════ */}
+        <div className="lg:col-span-4 space-y-6">
+          {/* Card 1: Data Company Progress Card */}
+          <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-sm font-extrabold text-slate-900">Data Company Progress</h3>
+              <button type="button" className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                <MoreHorizontal className="h-4 w-4" />
+              </button>
             </div>
-            <div>
-              <div className="text-sm font-bold text-amber-950">{t('dashboard.kycBannerTitle')}</div>
-              <div className="text-xs text-amber-700/90">{t('dashboard.kycBannerDesc')}</div>
+            <p className="text-[11px] text-slate-400 mb-4">
+              Hạn mức thẻ & tiến độ tài khoản ngân hàng
+            </p>
+
+            {/* 3 Stages Process Pill */}
+            <div className="bg-[#4361ee] p-3 rounded-2xl flex items-center justify-between gap-2 shadow-xs mb-3">
+              <div className="h-6 w-16 bg-white/20 rounded-lg flex items-center justify-center text-[10px] text-white font-bold">
+                Level 1
+              </div>
+              <div className="h-6 w-16 bg-white/30 rounded-lg flex items-center justify-center text-[10px] text-white font-bold">
+                Level 2
+              </div>
+              <div className="h-6 w-16 bg-white/20 rounded-lg flex items-center justify-center text-[10px] text-white font-bold">
+                Level 3
+              </div>
+            </div>
+
+            {/* Cyan progress tracker */}
+            <div className="flex items-center gap-3 pt-1">
+              <span className="h-2.5 w-2.5 rounded-full bg-cyan-400 shrink-0"></span>
+              <div className="h-1.5 flex-1 bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-full bg-cyan-400 w-3/4 rounded-full"></div>
+              </div>
+              <span className="h-2 w-2 rounded-full bg-cyan-400 shrink-0"></span>
             </div>
           </div>
-          <Link
-            to="/profile"
-            className="shrink-0 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs"
-          >
-            {t('dashboard.doNow')}
-          </Link>
-        </div>
-      )}
 
-      {/* ─── DESKTOP: 3-col Hero Layout ─── */}
-      <div className="hidden lg:grid lg:grid-cols-3 lg:gap-6">
-        {/* Col 1-2: Balance Hero Card */}
-        <div className="lg:col-span-2 space-y-5">
-          {/* Main Card with Vibrant Sky Blue / Ocean Gradient */}
-          <div className="relative rounded-3xl bg-gradient-to-br from-sky-500 via-blue-600 to-indigo-700 p-6 sm:p-7 text-white overflow-hidden shadow-xl shadow-sky-500/15 card-glow">
-            <div className="absolute top-0 right-0 w-80 h-80 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-cyan-400/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3 pointer-events-none" />
+          {/* Card 2: Digital Bank Card (Glassmorphic FinTech) */}
+          <div className="relative rounded-3xl p-6 text-white overflow-hidden shadow-xl shadow-blue-500/25 bg-gradient-to-br from-[#4361ee] via-[#3b82f6] to-[#6366f1]">
+            {/* Background geometric decorative circles */}
+            <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full blur-2xl -translate-y-1/3 translate-x-1/3 pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-40 h-40 bg-indigo-900/30 rounded-full blur-2xl pointer-events-none" />
+            <div className="absolute top-4 right-4 text-white/20 font-mono text-xs">
+              •••• ••••
+            </div>
 
-            <div className="relative z-10">
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-xs font-bold text-sky-100 uppercase tracking-wider">
-                  {t('dashboard.totalBalance')}
-                </span>
+            <div className="relative z-10 space-y-4">
+              <div>
+                <div className="text-[11px] text-white/70 font-semibold uppercase tracking-wider">
+                  Platinum Card
+                </div>
+                <div className="text-base font-bold text-white tracking-wide">
+                  {customer?.fullName || user?.username || 'John James Doe'}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-xs text-white/80 font-medium">Available Balance</div>
+                <div className="text-3xl font-black tracking-tight text-white tabular-nums">
+                  {hideBalance
+                    ? '••••••••'
+                    : primaryAcc
+                    ? formatCurrency(Number(primaryAcc.balance), primaryAcc.currency)
+                    : '$16,750.00'}
+                </div>
+                <div className="text-[11px] text-white/70 font-medium mt-0.5">
+                  Revenue <span className="font-bold text-emerald-300">+15%</span> from last week
+                </div>
+              </div>
+
+              {/* Mini expenditure trend wave */}
+              <div className="p-2.5 rounded-xl bg-white/10 backdrop-blur-xs flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setHideBalance(!hideBalance)}
-                    className="p-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white transition-colors cursor-pointer"
-                  >
-                    {hideBalance ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/20 text-white border border-white/30 backdrop-blur">
-                    {t('common.live')}
-                  </span>
+                  <svg className="w-16 h-5 text-emerald-300 stroke-current fill-none" viewBox="0 0 100 30">
+                    <path d="M0,25 Q25,5 50,20 T100,5" strokeWidth="3" strokeLinecap="round" />
+                  </svg>
+                  <span className="text-[11px] font-semibold text-white/90">Expenditure +6.2%</span>
                 </div>
-              </div>
-
-              <div className="mb-2">
-                {loading ? (
-                  <div className="h-11 w-52 rounded-xl bg-white/20 animate-pulse" />
-                ) : (
-                  <div className="text-4xl font-black tabular-nums tracking-tight">
-                    {hideBalance ? '••••••••' : totalVnd > 0 ? formatCurrency(totalVnd, 'VND') : formatCurrency(totalUsd, 'USD')}
-                  </div>
-                )}
-              </div>
-
-              {totalUsd > 0 && !hideBalance && (
-                <div className="text-xs text-sky-100 tabular-nums mb-4">
-                  {t('dashboard.foreignCurrency')}: <span className="font-bold text-white">{formatCurrency(totalUsd, 'USD')}</span>
-                </div>
-              )}
-
-              {/* Quick Action Tiles */}
-              <div className="grid grid-cols-4 gap-3 pt-5 border-t border-white/20">
-                {QUICK_ACTIONS.map(({ to, icon: Icon, labelKey }) => (
-                  <Link
-                    key={to}
-                    to={to}
-                    className="flex flex-col items-center gap-2 py-3 px-2 rounded-2xl bg-white/15 hover:bg-white/25 transition-all group cursor-pointer backdrop-blur-xs"
-                  >
-                    <div className="h-10 w-10 rounded-xl bg-white text-sky-600 flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <span className="text-[11px] font-bold text-white text-center leading-tight">
-                      {t(labelKey)}
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Account Cards Row */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-extrabold text-slate-800">{t('dashboard.myAccounts')}</h2>
-              <Link to="/accounts" className="text-xs font-bold text-sky-600 hover:text-sky-700 flex items-center gap-1">
-                {t('common.all')} <ChevronRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-            <div className="grid grid-cols-2 gap-3.5">
-              {loading ? (
-                [0, 1].map(i => <div key={i} className="h-28 rounded-2xl skeleton" />)
-              ) : accounts.length === 0 ? (
-                <div className="col-span-2 rounded-2xl border border-dashed border-sky-200 bg-sky-50/40 p-6 text-center text-xs text-slate-500">
-                  {t('dashboard.noAccounts')}{' '}
-                  <Link to="/accounts" className="text-sky-600 font-bold hover:underline">
-                    {t('dashboard.openNow')} →
-                  </Link>
-                </div>
-              ) : (
-                accounts.map((acc, i) => {
-                  const isSelected = i === activeAccIdx;
-                  return (
-                    <div
-                      key={acc.id}
-                      onClick={() => setActiveAccIdx(i)}
-                      className={`relative rounded-2xl p-4 border transition-all cursor-pointer ${isSelected
-                        ? 'bg-gradient-to-br from-sky-500 to-blue-600 text-white border-sky-500 shadow-md shadow-sky-500/20'
-                        : 'bg-white border-sky-100 hover:border-sky-300 text-slate-800 shadow-xs'
-                        }`}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className={`text-[10px] font-bold uppercase ${isSelected ? 'text-sky-100' : 'text-slate-500'}`}>
-                          {t(`accountTypes.${acc.accountType}`)}
-                        </span>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isSelected ? 'bg-white/20 text-white' : 'bg-sky-50 text-sky-700 border border-sky-200/60'}`}>
-                          {acc.currency}
-                        </span>
-                      </div>
-                      <div className={`text-lg font-black tabular-nums ${isSelected ? 'text-white' : 'text-slate-900'}`}>
-                        {hideBalance ? '••••••' : formatCurrency(Number(acc.balance), acc.currency)}
-                      </div>
-                      <div className="flex items-center justify-between mt-2">
-                        <span className={`text-[11px] font-mono ${isSelected ? 'text-sky-100' : 'text-slate-500'}`}>
-                          {acc.accountNumber}
-                        </span>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); copyText(acc.accountNumber); }}
-                          className="cursor-pointer p-0.5"
-                        >
-                          {copiedId === acc.accountNumber ? (
-                            <Check className={`h-3.5 w-3.5 ${isSelected ? 'text-white' : 'text-emerald-600'}`} />
-                          ) : (
-                            <Copy className={`h-3.5 w-3.5 ${isSelected ? 'text-sky-100' : 'text-slate-400'}`} />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Col 3: Services + Recent Transactions */}
-        <div className="space-y-5">
-          {/* Quick Services */}
-          <div className="bg-white border border-sky-100 rounded-3xl p-5 shadow-xs">
-            <h2 className="text-sm font-extrabold text-slate-800 mb-3.5">{t('dashboard.quickServices')}</h2>
-            <div className="grid grid-cols-3 gap-2.5">
-              {SERVICES.map(({ icon: Icon, labelKey, color }) => (
-                <Link
-                  key={labelKey}
-                  to="/payments"
-                  className="flex flex-col items-center gap-2 p-2.5 rounded-2xl hover:bg-sky-50/70 transition-colors cursor-pointer group"
+                <button
+                  type="button"
+                  onClick={() => setHideBalance(!hideBalance)}
+                  className="px-2 py-0.5 rounded-md bg-white/20 text-[10px] font-bold text-white hover:bg-white/30 cursor-pointer"
                 >
-                  <div className={`h-11 w-11 rounded-2xl ${color} flex items-center justify-center transition-transform group-hover:scale-105 shadow-xs`}>
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <span className="text-[11px] font-semibold text-slate-700 text-center leading-tight">
-                    {t(labelKey)}
-                  </span>
+                  {hideBalance ? 'Show' : 'Hide'}
+                </button>
+              </div>
+
+              {/* 4 Glassmorphism Action Pills matching screenshot: Send, Request, Create QR, More */}
+              <div className="grid grid-cols-4 gap-2 pt-2 border-t border-white/20">
+                <Link
+                  to="/transfer"
+                  className="py-2 px-1 rounded-xl fintech-glass-btn text-center text-xs font-bold block"
+                >
+                  Send
                 </Link>
-              ))}
+                <Link
+                  to="/sepay"
+                  className="py-2 px-1 rounded-xl fintech-glass-btn text-center text-xs font-bold block"
+                >
+                  Request
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => primaryAcc && setSelectedAccForQr(primaryAcc)}
+                  className="py-2 px-1 rounded-xl fintech-glass-btn text-center text-xs font-bold block cursor-pointer"
+                >
+                  Create QR
+                </button>
+                <Link
+                  to="/payments"
+                  className="py-2 px-1 rounded-xl fintech-glass-btn text-center text-xs font-bold block"
+                >
+                  More
+                </Link>
+              </div>
             </div>
           </div>
 
-          {/* Recent Transactions */}
-          <div className="bg-white border border-sky-100 rounded-3xl p-5 shadow-xs">
-            <div className="flex items-center justify-between mb-3.5">
-              <h2 className="text-sm font-extrabold text-slate-800">{t('dashboard.recentTransactions')}</h2>
-              <Link to="/sepay" className="text-xs text-sky-600 hover:text-sky-700 font-bold flex items-center gap-1">
-                {t('common.all')} <ChevronRight className="h-3.5 w-3.5" />
+          {/* Card 3: Recent Transactions List matching screenshot */}
+          <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-extrabold text-slate-900">Recent Transactions</h3>
+              <Link to="/sepay" className="text-xs font-bold text-[#4361ee] hover:underline">
+                See All
               </Link>
             </div>
-            <div className="space-y-1 divide-y divide-sky-50">
-              {loading ? (
-                [0, 1, 2].map(i => <div key={i} className="h-14 rounded-xl skeleton mb-2" />)
-              ) : recentTransactions.length === 0 ? (
-                <div className="py-8 text-center text-xs text-slate-400 font-medium">
-                  {t('dashboard.noTransactions')}
-                </div>
-              ) : (
-                recentTransactions.slice(0, 5).map(tx => {
+
+            <div className="flex items-center justify-between text-[11px] font-bold text-slate-400">
+              <span>Monday</span>
+              <span>{recentTransactions.length > 0 ? `${recentTransactions.length} Activity` : '4 Activity'}</span>
+            </div>
+
+            <div className="space-y-2.5">
+              {recentTransactions.length > 0 ? (
+                recentTransactions.slice(0, 4).map((tx) => {
                   const isIn = tx.transactionType === 'DEPOSIT' || tx.targetAccountId === primaryAcc?.id;
                   return (
-                    <div key={tx.id} className="flex items-center justify-between py-2.5 px-1 hover:bg-sky-50/50 rounded-xl transition-colors">
+                    <div
+                      key={tx.id}
+                      className="p-3 rounded-2xl bg-slate-50/70 hover:bg-slate-50 flex items-center justify-between transition-colors"
+                    >
                       <div className="flex items-center gap-3">
-                        <div className={`h-8 w-8 rounded-xl flex items-center justify-center shrink-0 ${isIn ? 'bg-emerald-50 text-emerald-600 border border-emerald-200/60' : 'bg-rose-50 text-rose-600 border border-rose-200/60'}`}>
-                          {isIn ? <ArrowDownLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
+                        <div
+                          className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${
+                            isIn ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-slate-600'
+                          }`}
+                        >
+                          {isIn ? <ArrowDownLeft className="h-4.5 w-4.5" /> : <ArrowUpRight className="h-4.5 w-4.5" />}
                         </div>
                         <div>
-                          <div className="text-xs font-bold text-slate-800 leading-tight truncate max-w-[120px]">
-                            {tx.description || tx.transactionType}
+                          <div className="text-xs font-bold text-slate-800 truncate max-w-[140px]">
+                            {tx.description || (isIn ? 'Receive Money' : 'Send Money')}
                           </div>
-                          <div className="text-[10px] text-slate-400 mt-0.5">{formatDateTime(tx.createdAt)}</div>
+                          <div className="text-[10px] text-slate-400 font-medium">
+                            {formatDateTime(tx.createdAt)}
+                          </div>
                         </div>
                       </div>
-                      <div className={`text-xs font-bold tabular-nums ${isIn ? 'text-emerald-600' : 'text-slate-800'}`}>
-                        {isIn ? '+' : '-'}{formatCurrency(Number(tx.amount), tx.currency)}
+                      <div
+                        className={`text-xs font-black tabular-nums ${
+                          isIn ? 'text-emerald-600' : 'text-slate-900'
+                        }`}
+                      >
+                        {isIn ? '+' : '-'}${Number(tx.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                       </div>
                     </div>
                   );
                 })
+              ) : (
+                <>
+                  <div className="p-3 rounded-2xl bg-slate-50/70 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="h-9 w-9 rounded-xl bg-slate-200 text-slate-600 flex items-center justify-center">
+                        <Send className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-slate-800">Send Money</div>
+                        <div className="text-[10px] text-slate-400">Daniel Harrison</div>
+                      </div>
+                    </div>
+                    <div className="text-xs font-black text-slate-900 tabular-nums">-$300.00</div>
+                  </div>
+
+                  <div className="p-3 rounded-2xl bg-slate-50/70 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="h-9 w-9 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                        <ArrowDownLeft className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-slate-800">Receive Money</div>
+                        <div className="text-[10px] text-slate-400">Isabella Anderson</div>
+                      </div>
+                    </div>
+                    <div className="text-xs font-black text-emerald-600 tabular-nums">+$500.00</div>
+                  </div>
+                </>
               )}
             </div>
           </div>
         </div>
-      </div>
 
-      {/* ─── MOBILE: Stacked Layout ─── */}
-      <div className="lg:hidden space-y-4">
-        {/* Mobile Balance Card */}
-        <div className="relative rounded-3xl bg-gradient-to-br from-sky-500 via-blue-600 to-indigo-700 p-5 text-white shadow-xl shadow-sky-500/15 overflow-hidden card-glow">
-          <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
-          <div className="relative z-10">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <span className="text-[11px] text-sky-100 font-semibold">{t('dashboard.totalBalance')}</span>
-                {primaryAcc && <div className="text-[10px] text-sky-200 font-mono">{primaryAcc.accountNumber}</div>}
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setHideBalance(!hideBalance)}
-                  className="p-1.5 rounded-xl bg-white/15 text-white cursor-pointer"
-                >
-                  {hideBalance ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-                {primaryAcc && (
-                  <button
-                    onClick={() => setSelectedAccForQr(primaryAcc)}
-                    className="p-1.5 rounded-xl bg-white/20 text-white cursor-pointer"
-                  >
-                    <QrCode className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {loading ? (
-              <div className="h-9 w-40 rounded-xl bg-white/20 animate-pulse mb-3" />
-            ) : (
-              <div className="text-3xl font-black tabular-nums mb-3">
-                {hideBalance ? '•••••••' : totalVnd > 0 ? formatCurrency(totalVnd, 'VND') : formatCurrency(totalUsd, 'USD')}
-              </div>
-            )}
-
-            {/* Mobile Quick Action Buttons */}
-            <div className="grid grid-cols-4 gap-2 pt-3 border-t border-white/20">
-              {QUICK_ACTIONS.map(({ to, icon: Icon, labelKey }) => (
-                <Link key={to} to={to} className="flex flex-col items-center gap-1.5 cursor-pointer">
-                  <div className="h-11 w-11 rounded-2xl bg-white text-sky-600 flex items-center justify-center shadow-md">
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <span className="text-[10px] font-bold text-white text-center leading-tight">
-                    {t(labelKey)}
+        {/* ══════════════════════════════════════════════════════════════
+            RIGHT COLUMN (8 Cols): 3 Info Cards, Main Table, Charts
+           ══════════════════════════════════════════════════════════════ */}
+        <div className="lg:col-span-8 space-y-6">
+          {/* Top Row: 3 Information Cards matching reference image */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {[
+              {
+                title: 'INFORMATION A',
+                value: '$1,234.00',
+                badge: '350 Document',
+                color: 'bg-[#4361ee]',
+              },
+              {
+                title: 'INFORMATION B',
+                value: '$2,345.00',
+                badge: '350 Document',
+                color: 'bg-[#4361ee]',
+              },
+              {
+                title: 'INFORMATION C',
+                value: '$3,456.00',
+                badge: '350 Document',
+                color: 'bg-[#06b6d4]',
+              },
+            ].map(({ title, value, badge, color }) => (
+              <div
+                key={title}
+                className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm space-y-2"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-400 tracking-wider">
+                    {title}
                   </span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile Account Cards Horizontal Scroll */}
-        {accounts.length > 0 && (
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-sm font-extrabold text-slate-800">{t('dashboard.myAccounts')}</h2>
-              <Link to="/accounts" className="text-xs text-sky-600 font-bold">{t('common.manage')}</Link>
-            </div>
-            <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 no-scrollbar">
-              {accounts.map((acc, i) => (
-                <div
-                  key={acc.id}
-                  className={`shrink-0 w-60 rounded-2xl p-4 border transition-all ${i === 0
-                    ? 'bg-gradient-to-br from-sky-500 to-blue-600 text-white border-sky-500 shadow-md shadow-sky-500/20'
-                    : 'bg-white border-sky-100 text-slate-800 shadow-xs'
-                    }`}
-                >
-                  <div className="flex justify-between mb-2">
-                    <span className={`text-[10px] font-bold ${i === 0 ? 'text-sky-100' : 'text-slate-500'}`}>
-                      {t(`accountTypes.${acc.accountType}`)}
-                    </span>
-                    <span className={`text-[10px] font-bold ${i === 0 ? 'text-sky-100' : 'text-sky-600'}`}>
-                      {acc.currency}
-                    </span>
-                  </div>
-                  <div className={`text-base font-black tabular-nums mb-2 ${i === 0 ? 'text-white' : 'text-slate-900'}`}>
-                    {hideBalance ? '••••••' : formatCurrency(Number(acc.balance), acc.currency)}
-                  </div>
-                  <div className={`text-[10px] font-mono ${i === 0 ? 'text-sky-100' : 'text-slate-500'}`}>
-                    {acc.accountNumber}
+                  <div
+                    className={`h-7 w-7 rounded-full ${color} text-white font-bold text-xs flex items-center justify-center shadow-xs`}
+                  >
+                    .B
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
 
-        {/* Mobile Services Grid */}
-        <div className="bg-white border border-sky-100 rounded-3xl p-4 shadow-xs">
-          <h2 className="text-sm font-extrabold text-slate-800 mb-3">{t('dashboard.quickServices')}</h2>
-          <div className="grid grid-cols-6 gap-2">
-            {SERVICES.map(({ icon: Icon, labelKey, color }) => (
-              <Link key={labelKey} to="/payments" className="flex flex-col items-center gap-1.5 cursor-pointer">
-                <div className={`h-10 w-10 rounded-xl ${color} flex items-center justify-center shadow-2xs`}>
-                  <Icon className="h-4.5 w-4.5" />
+                <div className="text-2xl font-black text-slate-900 tracking-tight tabular-nums">
+                  {value}
                 </div>
-                <span className="text-[9px] font-bold text-slate-600 text-center leading-tight">
-                  {t(labelKey)}
-                </span>
-              </Link>
+
+                <div>
+                  <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-[#4361ee]">
+                    {badge}
+                  </span>
+                </div>
+              </div>
             ))}
           </div>
-        </div>
 
-        {/* Mobile Transaction Feed */}
-        <div className="bg-white border border-sky-100 rounded-3xl overflow-hidden shadow-xs">
-          <div className="flex items-center justify-between p-4 border-b border-sky-100">
-            <h2 className="text-sm font-extrabold text-slate-800">{t('dashboard.balanceMovements')}</h2>
-            <Link to="/sepay" className="text-xs text-sky-600 font-bold flex items-center gap-1">
-              {t('common.all')} <ChevronRight className="h-3.5 w-3.5" />
-            </Link>
-          </div>
-          <div className="divide-y divide-sky-50">
-            {loading ? (
-              [0, 1, 2].map(i => <div key={i} className="h-16 mx-4 my-2 rounded-xl skeleton" />)
-            ) : recentTransactions.length === 0 ? (
-              <div className="py-10 text-center text-xs text-slate-400 font-medium">
-                {t('dashboard.noTransactions')}
+          {/* Middle Section: Main Data Table Card with Highlighted Selected Row */}
+          <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900 leading-tight">
+                  Data Company Progress
+                </h3>
+                <p className="text-xs text-slate-400">Lorem ipsum dolor sit amet</p>
               </div>
-            ) : (
-              recentTransactions.slice(0, 6).map(tx => {
-                const isIn = tx.transactionType === 'DEPOSIT' || tx.targetAccountId === primaryAcc?.id;
-                return (
-                  <div key={tx.id} className="flex items-center justify-between px-4 py-3.5">
-                    <div className="flex items-center gap-3">
-                      <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${isIn ? 'bg-emerald-50 text-emerald-600 border border-emerald-200/60' : 'bg-rose-50 text-rose-600 border border-rose-200/60'}`}>
-                        {isIn ? <ArrowDownLeft className="h-4.5 w-4.5" /> : <ArrowUpRight className="h-4.5 w-4.5" />}
-                      </div>
-                      <div>
-                        <div className="text-sm font-bold text-slate-800 leading-tight">
-                          {tx.description || tx.transactionType}
-                        </div>
-                        <div className="text-[11px] text-slate-400 mt-0.5">{formatDateTime(tx.createdAt)}</div>
-                      </div>
+
+              {/* Table Action Icons */}
+              <div className="flex items-center gap-2 text-slate-400">
+                <button
+                  type="button"
+                  className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+                  title="Document"
+                >
+                  <FileText className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+                  title="Filter"
+                >
+                  <Filter className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+                  title="Lock"
+                >
+                  <Lock className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="overflow-x-auto -mx-2">
+              <table className="w-full text-left text-xs min-w-[550px]">
+                <thead>
+                  <tr className="text-slate-400 text-[11px] font-bold border-b border-slate-100">
+                    <th className="py-3 px-3">No.</th>
+                    <th className="py-3 px-3">Name</th>
+                    <th className="py-3 px-3">Current price</th>
+                    <th className="py-3 px-3">Last 24h</th>
+                    <th className="py-3 px-3">7 days period</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50 font-medium">
+                  {tableProducts.map((p, idx) => {
+                    const isSelected = selectedRowIndex === idx;
+                    return (
+                      <tr
+                        key={p.id}
+                        onClick={() => setSelectedRowIndex(idx)}
+                        className={`cursor-pointer transition-all ${
+                          isSelected
+                            ? 'bg-[#4361ee] text-white shadow-md shadow-blue-500/25 rounded-2xl'
+                            : 'hover:bg-slate-50/80 text-slate-700'
+                        }`}
+                      >
+                        {/* No. with checkbox */}
+                        <td className="py-3.5 px-3">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => setSelectedRowIndex(idx)}
+                              className="rounded border-slate-300 text-[#4361ee] focus:ring-[#4361ee]"
+                            />
+                            <span className={isSelected ? 'text-white font-bold' : 'text-slate-400'}>
+                              {p.id}
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Name with squircle icon */}
+                        <td className="py-3.5 px-3">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={`h-9 w-9 rounded-xl bg-gradient-to-tr ${p.color} text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs`}
+                            >
+                              .P
+                            </div>
+                            <div>
+                              <div className={`font-bold leading-tight ${isSelected ? 'text-white' : 'text-slate-900'}`}>
+                                {p.name}
+                              </div>
+                              <div className={`text-[10px] ${isSelected ? 'text-white/80' : 'text-slate-400'}`}>
+                                {p.sub}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Current price */}
+                        <td className="py-3.5 px-3 font-bold tabular-nums">
+                          {p.price}
+                        </td>
+
+                        {/* Last 24h with percentage and mini trend */}
+                        <td className="py-3.5 px-3 tabular-nums font-bold">
+                          <div className="flex items-center gap-1.5">
+                            {p.isPositive ? (
+                              <span className={isSelected ? 'text-emerald-200' : 'text-emerald-500'}>
+                                {p.change}
+                              </span>
+                            ) : (
+                              <span className={isSelected ? 'text-rose-200' : 'text-rose-500'}>
+                                {p.change}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* 7 days period SVG sparkline */}
+                        <td className="py-3.5 px-3">
+                          <svg
+                            className={`w-24 h-6 ${
+                              isSelected
+                                ? 'stroke-white fill-none'
+                                : p.isPositive
+                                ? 'stroke-emerald-500 fill-none'
+                                : 'stroke-rose-400 fill-none'
+                            }`}
+                            viewBox="0 0 100 25"
+                          >
+                            <path
+                              d={
+                                p.isPositive
+                                  ? 'M0,20 Q25,15 50,8 T100,2'
+                                  : 'M0,5 Q25,8 50,18 T100,22'
+                              }
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination footer matching screenshot */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100 text-xs font-bold text-slate-500">
+              <button
+                type="button"
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                <span>Previous</span>
+              </button>
+
+              <div className="flex items-center gap-1">
+                <span className="h-7 w-7 rounded-lg bg-[#4361ee] text-white flex items-center justify-center">1</span>
+                <span className="h-7 w-7 rounded-lg hover:bg-slate-100 flex items-center justify-center cursor-pointer">2</span>
+                <span className="h-7 w-7 rounded-lg hover:bg-slate-100 flex items-center justify-center cursor-pointer">3</span>
+                <span className="px-1 text-slate-300">...</span>
+                <span className="h-7 w-7 rounded-lg hover:bg-slate-100 flex items-center justify-center cursor-pointer">8</span>
+                <span className="h-7 w-7 rounded-lg hover:bg-slate-100 flex items-center justify-center cursor-pointer">9</span>
+                <span className="h-7 w-7 rounded-lg hover:bg-slate-100 flex items-center justify-center cursor-pointer">10</span>
+              </div>
+
+              <button
+                type="button"
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer"
+              >
+                <span>Next</span>
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Bottom Row: Monthly Investment Chart & Company Spending Breakdown */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Monthly Investment (Wavy Area Chart) */}
+            <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-900">Monthly Investment</h3>
+                </div>
+                <div className="px-2.5 py-1 rounded-lg bg-[#4361ee] text-white text-[10px] font-bold">
+                  Month
+                </div>
+              </div>
+
+              {/* Area Wave Chart Container */}
+              <div className="relative pt-4">
+                {/* Floating tooltip pill like in screenshot: 18th Mar */}
+                <div className="absolute top-2 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-lg bg-[#4361ee] text-white text-[10px] font-bold shadow-md shadow-blue-500/30 flex items-center gap-1 z-10">
+                  <span>18th Mar</span>
+                </div>
+
+                <svg className="w-full h-32" viewBox="0 0 300 120" preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id="waveGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#4361ee" stopOpacity="0.25" />
+                      <stop offset="100%" stopColor="#4361ee" stopOpacity="0.0" />
+                    </linearGradient>
+                  </defs>
+                  <path
+                    d="M0,100 Q40,30 90,80 T180,40 T260,70 T300,50 L300,120 L0,120 Z"
+                    fill="url(#waveGradient)"
+                  />
+                  <path
+                    d="M0,100 Q40,30 90,80 T180,40 T260,70 T300,50"
+                    fill="none"
+                    stroke="#4361ee"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                  />
+                  {/* Pin Circle */}
+                  <circle cx="150" cy="55" r="5" fill="#ffffff" stroke="#4361ee" strokeWidth="3" />
+                </svg>
+
+                <div className="flex justify-between text-[10px] text-slate-400 font-bold pt-2 border-t border-slate-100">
+                  <span>Jan</span>
+                  <span>Feb</span>
+                  <span className="text-[#4361ee] font-black">Mar</span>
+                  <span>Apr</span>
+                  <span>May</span>
+                  <span>Jun</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Company Spending Breakdown */}
+            <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-900">Company spending</h3>
+                  <p className="text-[10px] text-slate-400">Lorem ipsum dolor sit amet</p>
+                </div>
+                <div className="flex items-center gap-1 text-[11px] font-bold text-slate-400 cursor-pointer">
+                  <span>Most Recent</span>
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </div>
+              </div>
+
+              {/* Segmented Color Progress Bar matching screenshot */}
+              <div className="h-2 w-full rounded-full bg-slate-100 flex overflow-hidden gap-0.5">
+                <div className="h-full bg-[#4361ee] w-1/2 rounded-full"></div>
+                <div className="h-full bg-[#06b6d4] w-1/4 rounded-full"></div>
+                <div className="h-full bg-[#f97316] w-1/4 rounded-full"></div>
+              </div>
+
+              {/* 3 Categories: Entertainment, Shopping, Dining */}
+              <div className="space-y-3 pt-1">
+                <div className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50/70 hover:bg-slate-50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-xl bg-blue-100 text-[#4361ee] flex items-center justify-center">
+                      <Tv className="h-4.5 w-4.5" />
                     </div>
-                    <div className={`text-sm font-bold tabular-nums ${isIn ? 'text-emerald-600' : 'text-slate-800'}`}>
-                      {isIn ? '+' : '-'}{formatCurrency(Number(tx.amount), tx.currency)}
+                    <div>
+                      <div className="text-xs font-bold text-slate-700">Entertainment</div>
+                      <div className="text-[10px] text-slate-400">Xem phim & Truyền hình</div>
                     </div>
                   </div>
-                );
-              })
-            )}
-          </div>
-        </div>
+                  <div className="text-xs font-black text-slate-900 tabular-nums">$816.00</div>
+                </div>
 
-        {/* Mobile Security Banner */}
-        <div className="rounded-3xl bg-gradient-to-r from-sky-50 to-blue-50 border border-sky-200 p-4 flex items-center gap-3.5 shadow-xs">
-          <div className="h-11 w-11 rounded-2xl bg-sky-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-sky-500/20">
-            <ShieldCheck className="h-6 w-6" />
-          </div>
-          <div className="flex-1">
-            <div className="text-xs font-bold text-slate-900">{t('dashboard.securityBannerTitle')}</div>
-            <div className="text-[11px] text-slate-600 mt-0.5">{t('dashboard.securityBannerDesc')}</div>
+                <div className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50/70 hover:bg-slate-50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center">
+                      <ShoppingBag className="h-4.5 w-4.5" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-700">Shopping</div>
+                      <div className="text-[10px] text-slate-400">Mua sắm trực tuyến</div>
+                    </div>
+                  </div>
+                  <div className="text-xs font-black text-slate-900 tabular-nums">$590.00</div>
+                </div>
+
+                <div className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50/70 hover:bg-slate-50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-xl bg-cyan-100 text-cyan-600 flex items-center justify-center">
+                      <Utensils className="h-4.5 w-4.5" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-700">Dining</div>
+                      <div className="text-[10px] text-slate-400">Nhà hàng & Ẩm thực</div>
+                    </div>
+                  </div>
+                  <div className="text-xs font-black text-slate-900 tabular-nums">$352.24</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

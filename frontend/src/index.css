@@ -2,9 +2,9 @@
 
 @layer base {
   body {
-    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background-color: #f8fafc;
-    color: #0f172a;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #f0f3fa;
+    color: #1e293b;
     @apply antialiased;
   }
 }
@@ -13,43 +13,84 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Light Theme Card Shimmer Effect */
-@keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-
-  100% {
-    background-position: 200% 0;
-  }
+/* Modern FinTech UI Floating Cards */
+.fintech-card {
+  background-color: #ffffff;
+  border-radius: 1.25rem;
+  border: 1px solid rgba(226, 232, 240, 0.7);
+  box-shadow: 0 4px 20px -2px rgba(30, 41, 59, 0.04), 0 2px 6px -1px rgba(30, 41, 59, 0.02);
 }
 
-.skeleton {
-  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
+.fintech-card-hover {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.fintech-card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -4px rgba(67, 97, 238, 0.08), 0 4px 10px -2px rgba(30, 41, 59, 0.03);
 }
 
-/* Light Sky Blue Glow */
-.card-glow {
-  box-shadow: 0 0 0 1px rgba(14, 165, 233, 0.18), 0 10px 30px -4px rgba(14, 165, 233, 0.12);
+/* Digital Bank Card (Glassmorphic FinTech) */
+.fintech-digital-card {
+  background: linear-gradient(135deg, #4361ee 0%, #3a0ca3 100%);
+  box-shadow: 0 14px 30px -4px rgba(67, 97, 238, 0.35);
+  position: relative;
+  overflow: hidden;
 }
 
-.card-subtle {
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+/* Glassmorphism Action Buttons */
+.fintech-glass-btn {
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  transition: all 0.15s ease;
+}
+.fintech-glass-btn:hover {
+  background: rgba(255, 255, 255, 0.28);
+  transform: translateY(-1px);
 }
 
-/* Hide scrollbar on horizontal scroll sections */
+/* Primary Action Buttons */
+.fintech-primary-btn {
+  background: #4361ee;
+  color: #ffffff;
+  box-shadow: 0 4px 14px 0 rgba(67, 97, 238, 0.3);
+  transition: all 0.15s ease;
+}
+.fintech-primary-btn:hover {
+  background: #3651d4;
+  box-shadow: 0 6px 18px 0 rgba(67, 97, 238, 0.4);
+}
+
+/* Cyan / Teal CTA Pill Button */
+.fintech-cyan-btn {
+  background: linear-gradient(135deg, #06b6d4 0%, #0284c7 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 14px 0 rgba(6, 182, 212, 0.35);
+  transition: all 0.15s ease;
+}
+.fintech-cyan-btn:hover {
+  opacity: 0.95;
+  box-shadow: 0 6px 18px 0 rgba(6, 182, 212, 0.45);
+}
+
+/* Highlighted Table Row */
+.fintech-row-selected {
+  background-color: #4361ee !important;
+  color: #ffffff !important;
+  box-shadow: 0 6px 18px -2px rgba(67, 97, 238, 0.32);
+}
+
+/* Custom Scrollbar */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
-
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
 
-/* Soft scroll */
 html {
   scroll-behavior: smooth;
 }
