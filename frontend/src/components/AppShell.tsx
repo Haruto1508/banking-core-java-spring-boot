@@ -40,7 +40,7 @@ export const AppShell: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans">
+    <div className="min-h-screen bg-[#080d14] flex flex-col md:flex-row font-sans">
       {/* Desktop Sidebar - SePay Dark Modern Style */}
       <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 bg-slate-950 text-white border-r border-slate-900 shadow-xl z-20">
         <div className="flex items-center gap-3 px-6 py-5 border-b border-slate-900">
@@ -127,7 +127,7 @@ export const AppShell: React.FC = () => {
       </header>
 
       {/* Main Content Viewport */}
-      <main className="flex-1 md:pl-64 pb-24 md:pb-10">
+      <main className="flex-1 md:pl-64 pb-24 md:pb-10 bg-[#080d14] min-h-screen">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
           <Outlet />
         </div>

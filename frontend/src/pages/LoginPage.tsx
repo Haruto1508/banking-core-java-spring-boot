@@ -114,28 +114,28 @@ export const LoginPage: React.FC = () => {
             <div className="grid grid-cols-3 gap-2 text-xs">
               <button
                 type="button"
-                onClick={() => fillDemo('demo_user', 'Banking@123')}
+                onClick={() => fillDemo('demo_user', 'Password@123')}
                 className="py-2 px-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-center font-medium transition-colors cursor-pointer"
               >
                 Khách hàng
               </button>
               <button
                 type="button"
-                onClick={() => fillDemo('teller', 'Banking@123')}
+                onClick={() => fillDemo('teller', 'Password@123')}
                 className="py-2 px-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-center font-medium transition-colors cursor-pointer"
               >
                 Giao dịch viên
               </button>
               <button
                 type="button"
-                onClick={() => fillDemo('admin', 'Banking@123')}
+                onClick={() => fillDemo('admin', 'Password@123')}
                 className="py-2 px-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-center font-medium transition-colors cursor-pointer"
               >
                 Quản trị viên
               </button>
             </div>
             <p className="text-[11px] text-slate-400 text-center mt-2 font-mono">
-              Mật khẩu mặc định: <span className="text-emerald-400 font-semibold">Banking@123</span>
+              Mật khẩu mặc định: <span className="text-emerald-400 font-semibold">Password@123</span>
             </p>
           </div>
 
