@@ -216,11 +216,10 @@ export const DashboardPage: React.FC = () => {
                     <div
                       key={acc.id}
                       onClick={() => setActiveAccIdx(i)}
-                      className={`relative rounded-2xl p-4 border transition-all cursor-pointer ${
-                        isSelected
-                          ? 'bg-gradient-to-br from-sky-500 to-blue-600 text-white border-sky-500 shadow-md shadow-sky-500/20'
-                          : 'bg-white border-sky-100 hover:border-sky-300 text-slate-800 shadow-xs'
-                      }`}
+                      className={`relative rounded-2xl p-4 border transition-all cursor-pointer ${isSelected
+                        ? 'bg-gradient-to-br from-sky-500 to-blue-600 text-white border-sky-500 shadow-md shadow-sky-500/20'
+                        : 'bg-white border-sky-100 hover:border-sky-300 text-slate-800 shadow-xs'
+                        }`}
                     >
                       <div className="flex items-center justify-between mb-2">
                         <span className={`text-[10px] font-bold uppercase ${isSelected ? 'text-sky-100' : 'text-slate-500'}`}>
@@ -386,11 +385,10 @@ export const DashboardPage: React.FC = () => {
               {accounts.map((acc, i) => (
                 <div
                   key={acc.id}
-                  className={`shrink-0 w-60 rounded-2xl p-4 border transition-all ${
-                    i === 0
-                      ? 'bg-gradient-to-br from-sky-500 to-blue-600 text-white border-sky-500 shadow-md shadow-sky-500/20'
-                      : 'bg-white border-sky-100 text-slate-800 shadow-xs'
-                  }`}
+                  className={`shrink-0 w-60 rounded-2xl p-4 border transition-all ${i === 0
+                    ? 'bg-gradient-to-br from-sky-500 to-blue-600 text-white border-sky-500 shadow-md shadow-sky-500/20'
+                    : 'bg-white border-sky-100 text-slate-800 shadow-xs'
+                    }`}
                 >
                   <div className="flex justify-between mb-2">
                     <span className={`text-[10px] font-bold ${i === 0 ? 'text-sky-100' : 'text-slate-500'}`}>
