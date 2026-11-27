@@ -11,6 +11,7 @@ import { AccountsPage } from './pages/AccountsPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { AdminTellerPage } from './pages/AdminTellerPage';
+import { WebhooksSePayPage } from './pages/WebhooksSePayPage';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -42,6 +43,7 @@ export function App() {
           >
             <Route index element={<DashboardPage />} />
             <Route path="transfer" element={<TransferPage />} />
+            <Route path="sepay" element={<WebhooksSePayPage />} />
             <Route path="payments" element={<PaymentsPage />} />
             <Route path="accounts" element={<AccountsPage />} />
             <Route path="notifications" element={<NotificationsPage />} />

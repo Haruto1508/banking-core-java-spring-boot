@@ -59,6 +59,9 @@ export const accountApi = {
   getById: (accountId: string) =>
     apiClient.get<ApiResponse<BankAccount>>(`/accounts/${accountId}`),
 
+  lookupByNumber: (accountNumber: string) =>
+    apiClient.get<ApiResponse<BankAccount>>(`/accounts/lookup/${accountNumber}`),
+
   freeze: (accountId: string) =>
     apiClient.patch<ApiResponse<BankAccount>>(`/accounts/${accountId}/freeze`),
 
