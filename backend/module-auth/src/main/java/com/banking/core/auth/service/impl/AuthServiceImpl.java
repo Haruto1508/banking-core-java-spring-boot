@@ -14,9 +14,6 @@ import com.banking.core.auth.domain.enums.UserStatus;
 import com.banking.core.auth.domain.exception.AuthException;
 import com.banking.core.auth.domain.repository.RefreshTokenRepository;
 import com.banking.core.auth.domain.repository.UserRepository;
-import com.banking.core.auth.exposed.AuthApi;
-import com.banking.core.auth.exposed.AuthUserDto;
-import com.banking.core.auth.security.BankingUserDetails;
 import com.banking.core.auth.security.JwtProperties;
 import com.banking.core.auth.security.JwtTokenProvider;
 import com.banking.core.auth.service.AuthService;
@@ -25,8 +22,6 @@ import com.banking.core.common.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,11 +38,11 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Implementation of AuthService and public AuthApi for the Modular Monolith.
+ * Implementation of AuthService handling registration, login, token rotation, and account unlocking.
  */
 @Service
 @RequiredArgsConstructor
-public class AuthServiceImpl implements AuthService, AuthApi {
+public class AuthServiceImpl implements AuthService {
 
     private static final Logger log = LoggerFactory.getLogger(AuthServiceImpl.class);
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
@@ -194,28 +189,6 @@ public class AuthServiceImpl implements AuthService, AuthApi {
         user.unlock();
         userRepository.save(user);
         log.info("Administratively unlocked user id={}", userId);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public Optional<AuthUserDto> findUserById(UUID userId) {
-        return userRepository.findById(userId)
-                .map(u -> new AuthUserDto(u.getId(), u.getUsername(), u.getEmail(), u.getRole(), u.getStatus()));
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public boolean existsById(UUID userId) {
-        return userRepository.existsById(userId);
-    }
-
-    @Override
-    public Optional<UUID> getCurrentAuthenticatedUserId() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.getPrincipal() instanceof BankingUserDetails details) {
-            return Optional.of(details.getUserId());
-        }
-        return Optional.empty();
     }
 
     private AuthResponse issueTokens(User user) {

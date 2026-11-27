@@ -13,8 +13,6 @@ import com.banking.core.customer.domain.entity.Customer;
 import com.banking.core.customer.domain.enums.CustomerStatus;
 import com.banking.core.customer.domain.exception.CustomerException;
 import com.banking.core.customer.domain.repository.CustomerRepository;
-import com.banking.core.customer.exposed.CustomerApi;
-import com.banking.core.customer.exposed.CustomerSummaryDto;
 import com.banking.core.customer.service.CustomerService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -32,11 +30,11 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Implementation of CustomerService and public CustomerApi.
+ * Implementation of CustomerService handling customer onboarding, profile updates, and search.
  */
 @Service
 @RequiredArgsConstructor
-public class CustomerServiceImpl implements CustomerService, CustomerApi {
+public class CustomerServiceImpl implements CustomerService {
 
     private static final Logger log = LoggerFactory.getLogger(CustomerServiceImpl.class);
     private static final SecureRandom RANDOM_GENERATOR = new SecureRandom();
@@ -158,35 +156,6 @@ public class CustomerServiceImpl implements CustomerService, CustomerApi {
         return mapToCustomerResponse(updatedCustomer);
     }
 
-    /**
-     * Public cross-module API: retrieves customer summary by customer ID.
-     */
-    @Override
-    @Transactional(readOnly = true)
-    public Optional<CustomerSummaryDto> findCustomerById(UUID customerId) {
-        return customerRepository.findById(customerId).map(this::mapToCustomerSummary);
-    }
-
-    /**
-     * Public cross-module API: retrieves customer summary by linked user ID.
-     */
-    @Override
-    @Transactional(readOnly = true)
-    public Optional<CustomerSummaryDto> findCustomerByUserId(UUID userId) {
-        return customerRepository.findByUserId(userId).map(this::mapToCustomerSummary);
-    }
-
-    /**
-     * Public cross-module API: checks whether a customer exists and is ACTIVE.
-     */
-    @Override
-    @Transactional(readOnly = true)
-    public boolean isCustomerActive(UUID customerId) {
-        return customerRepository.findById(customerId)
-                .map(Customer::isActive)
-                .orElse(false);
-    }
-
     private UUID resolveTargetUserId(UUID requestedUserId, UUID requesterUserId, Role requesterRole) {
         if (requesterRole == Role.CUSTOMER) {
             return requesterUserId;
@@ -229,17 +198,6 @@ public class CustomerServiceImpl implements CustomerService, CustomerApi {
                 customer.getStatus(),
                 customer.getCreatedAt(),
                 customer.getUpdatedAt()
-        );
-    }
-
-    private CustomerSummaryDto mapToCustomerSummary(Customer customer) {
-        return new CustomerSummaryDto(
-                customer.getId(),
-                customer.getUserId(),
-                customer.getCustomerNumber(),
-                customer.getFullName(),
-                customer.getEmail(),
-                customer.getStatus()
         );
     }
 }
