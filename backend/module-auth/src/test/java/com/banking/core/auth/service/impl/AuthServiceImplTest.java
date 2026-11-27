@@ -1,5 +1,6 @@
 package com.banking.core.auth.service.impl;
 
+import com.banking.core.audit.exposed.AuditApi;
 import com.banking.core.auth.api.dto.request.LoginRequest;
 import com.banking.core.auth.api.dto.request.RefreshTokenRequest;
 import com.banking.core.auth.api.dto.request.RegisterRequest;
@@ -43,6 +44,8 @@ class AuthServiceImplTest {
     private PasswordEncoder passwordEncoder;
     @Mock
     private JwtTokenProvider jwtTokenProvider;
+    @Mock
+    private AuditApi auditApi;
 
     private JwtProperties jwtProperties;
     private AuthServiceImpl authService;
@@ -61,7 +64,8 @@ class AuthServiceImplTest {
                 refreshTokenRepository,
                 passwordEncoder,
                 jwtTokenProvider,
-                jwtProperties
+                jwtProperties,
+                auditApi
         );
     }
 

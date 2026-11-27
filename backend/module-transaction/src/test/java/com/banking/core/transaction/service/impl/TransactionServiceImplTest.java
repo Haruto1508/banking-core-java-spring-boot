@@ -4,6 +4,7 @@ import com.banking.core.account.domain.enums.AccountStatus;
 import com.banking.core.account.domain.enums.AccountType;
 import com.banking.core.account.exposed.AccountApi;
 import com.banking.core.account.exposed.AccountSummaryDto;
+import com.banking.core.audit.exposed.AuditApi;
 import com.banking.core.auth.domain.enums.Role;
 import com.banking.core.common.constant.BankingConstants;
 import com.banking.core.common.exception.ErrorCode;
@@ -65,6 +66,9 @@ class TransactionServiceImplTest {
 
     @Mock
     private TransactionTemplate transactionTemplate;
+
+    @Mock
+    private AuditApi auditApi;
 
     @InjectMocks
     private TransactionServiceImpl transactionService;

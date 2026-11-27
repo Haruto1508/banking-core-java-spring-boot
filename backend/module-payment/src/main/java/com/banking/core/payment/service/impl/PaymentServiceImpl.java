@@ -2,6 +2,7 @@ package com.banking.core.payment.service.impl;
 
 import com.banking.core.account.exposed.AccountApi;
 import com.banking.core.account.exposed.AccountSummaryDto;
+import com.banking.core.audit.exposed.AuditApi;
 import com.banking.core.auth.domain.enums.Role;
 import com.banking.core.common.dto.PageResponse;
 import com.banking.core.common.exception.ErrorCode;
@@ -49,6 +50,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final AccountApi accountApi;
     private final CustomerApi customerApi;
     private final TransactionApi transactionApi;
+    private final AuditApi auditApi;
 
     /**
      * Creates a payment order and executes the underlying transfer via TransactionApi.
@@ -121,6 +123,11 @@ public class PaymentServiceImpl implements PaymentService {
 
         log.info("Payment completed successfully: paymentRef={}, txnId={}",
                 paymentReference, transactionSummary.id());
+        auditApi.recordAuditLog(
+                requesterUserId != null ? requesterUserId.toString() : "SYSTEM",
+                requesterRole != null ? requesterRole.name() : "SYSTEM",
+                "PAYMENT_COMPLETED", "PAYMENT", completedPayment.getId().toString(), null, "SUCCESS",
+                "paymentRef=" + paymentReference + ", amount=" + request.amount() + " " + normalizedCurrency);
 
         return mapToResponse(completedPayment);
     }
@@ -148,6 +155,10 @@ public class PaymentServiceImpl implements PaymentService {
 
         log.info("Payment refunded successfully: paymentRef={}, staffUserId={}",
                 refundedPayment.getPaymentRef(), staffUserId);
+        auditApi.recordAuditLog(
+                staffUserId != null ? staffUserId.toString() : "SYSTEM", "STAFF_OR_ADMIN",
+                "PAYMENT_REFUNDED", "PAYMENT", refundedPayment.getId().toString(), null, "SUCCESS",
+                "paymentRef=" + refundedPayment.getPaymentRef() + ", reason=" + request.reason());
 
         return mapToResponse(refundedPayment);
     }

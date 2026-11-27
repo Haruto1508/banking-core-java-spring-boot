@@ -38,11 +38,12 @@ public class AuditServiceImpl implements AuditService, AuditApi {
     private final AuditLogRepository auditLogRepository;
 
     /**
-     * Cross-module: records an immutable audit event in an independent transaction.
+     * Cross-module: records an immutable audit event within the caller's transaction
+     * (or starts a new one if none exists) to avoid connection pool starvation under concurrency.
      * Masks any accidental sensitive keys in metadata before persisting.
      */
     @Override
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional(propagation = Propagation.REQUIRED)
     public void recordAuditLog(
             String actorId,
             String actorRole,

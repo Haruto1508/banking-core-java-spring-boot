@@ -4,6 +4,7 @@ import com.banking.core.account.domain.enums.AccountStatus;
 import com.banking.core.account.domain.enums.AccountType;
 import com.banking.core.account.exposed.AccountApi;
 import com.banking.core.account.exposed.AccountSummaryDto;
+import com.banking.core.audit.exposed.AuditApi;
 import com.banking.core.auth.domain.enums.Role;
 import com.banking.core.customer.domain.enums.CustomerStatus;
 import com.banking.core.customer.exposed.CustomerApi;
@@ -54,6 +55,9 @@ class PaymentServiceImplTest {
 
     @Mock
     private TransactionApi transactionApi;
+
+    @Mock
+    private AuditApi auditApi;
 
     @InjectMocks
     private PaymentServiceImpl paymentService;

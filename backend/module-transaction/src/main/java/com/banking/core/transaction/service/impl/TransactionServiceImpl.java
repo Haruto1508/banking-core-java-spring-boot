@@ -2,6 +2,7 @@ package com.banking.core.transaction.service.impl;
 
 import com.banking.core.account.exposed.AccountApi;
 import com.banking.core.account.exposed.AccountSummaryDto;
+import com.banking.core.audit.exposed.AuditApi;
 import com.banking.core.auth.domain.enums.Role;
 import com.banking.core.common.constant.BankingConstants;
 import com.banking.core.common.dto.PageResponse;
@@ -61,6 +62,7 @@ public class TransactionServiceImpl implements TransactionService, TransactionAp
     private final LedgerApi ledgerApi;
     private final IdempotencyService idempotencyService;
     private final TransactionTemplate transactionTemplate;
+    private final AuditApi auditApi;
 
     // =========================================================================
     // TransactionService — called by TransactionController
@@ -103,6 +105,10 @@ public class TransactionServiceImpl implements TransactionService, TransactionAp
 
         log.info("DEPOSIT committed ref={} account={} amount={} {} staff={}",
                 savedTxn.getTransactionRef(), request.accountId(), normalizedAmount, normalizedCurrency, staffUserId);
+        auditApi.recordAuditLog(
+                staffUserId != null ? staffUserId.toString() : "SYSTEM", "STAFF_OR_ADMIN",
+                "DEPOSIT", "TRANSACTION", savedTxn.getId().toString(), null, "SUCCESS",
+                "ref=" + savedTxn.getTransactionRef() + ", amount=" + normalizedAmount + " " + normalizedCurrency);
 
         return mapToResponse(savedTxn);
     }
@@ -144,6 +150,10 @@ public class TransactionServiceImpl implements TransactionService, TransactionAp
 
         log.info("WITHDRAWAL committed ref={} account={} amount={} {} staff={}",
                 savedTxn.getTransactionRef(), request.accountId(), normalizedAmount, normalizedCurrency, staffUserId);
+        auditApi.recordAuditLog(
+                staffUserId != null ? staffUserId.toString() : "SYSTEM", "STAFF_OR_ADMIN",
+                "WITHDRAWAL", "TRANSACTION", savedTxn.getId().toString(), null, "SUCCESS",
+                "ref=" + savedTxn.getTransactionRef() + ", amount=" + normalizedAmount + " " + normalizedCurrency);
 
         return mapToResponse(savedTxn);
     }
@@ -245,6 +255,10 @@ public class TransactionServiceImpl implements TransactionService, TransactionAp
 
         log.info("REVERSAL committed ref={} originalRef={} admin={}",
                 savedReversal.getTransactionRef(), original.getTransactionRef(), adminUserId);
+        auditApi.recordAuditLog(
+                adminUserId != null ? adminUserId.toString() : "SYSTEM", "ADMIN",
+                "TRANSACTION_REVERSAL", "TRANSACTION", savedReversal.getId().toString(), null, "SUCCESS",
+                "reversedOriginalRef=" + original.getTransactionRef() + ", reason=" + request.reason());
 
         return mapToResponse(savedReversal);
     }
@@ -431,6 +445,11 @@ public class TransactionServiceImpl implements TransactionService, TransactionAp
 
         log.info("TRANSFER committed ref={} from={} to={} amount={} {}",
                 savedTxn.getTransactionRef(), sourceAccountId, targetAccountId, normalizedAmount, normalizedCurrency);
+        auditApi.recordAuditLog(
+                requesterUserId != null ? requesterUserId.toString() : "SYSTEM",
+                requesterRole != null ? requesterRole.name() : "SYSTEM",
+                "TRANSFER", "TRANSACTION", savedTxn.getId().toString(), null, "SUCCESS",
+                "ref=" + savedTxn.getTransactionRef() + ", amount=" + normalizedAmount + " " + normalizedCurrency);
 
         return mapToResponse(savedTxn);
     }

@@ -10,6 +10,7 @@ import com.banking.core.account.domain.repository.AccountRepository;
 import com.banking.core.account.exposed.AccountApi;
 import com.banking.core.account.exposed.AccountSummaryDto;
 import com.banking.core.account.service.AccountService;
+import com.banking.core.audit.exposed.AuditApi;
 import com.banking.core.auth.domain.enums.Role;
 import com.banking.core.common.exception.ErrorCode;
 import com.banking.core.common.exception.InsufficientBalanceException;
@@ -45,6 +46,7 @@ public class AccountServiceImpl implements AccountService, AccountApi {
 
     private final AccountRepository accountRepository;
     private final CustomerApi customerApi;
+    private final AuditApi auditApi;
 
     // =========================================================================
     // AccountService — called by AccountController
@@ -92,6 +94,11 @@ public class AccountServiceImpl implements AccountService, AccountApi {
 
         Account savedAccount = accountRepository.save(newAccount);
         log.info("Opened account id={} number={} for customer={}", savedAccount.getId(), accountNumber, customerId);
+        auditApi.recordAuditLog(
+                requesterUserId != null ? requesterUserId.toString() : "SYSTEM",
+                requesterRole != null ? requesterRole.name() : "SYSTEM",
+                "ACCOUNT_OPENED", "ACCOUNT", savedAccount.getId().toString(),
+                null, "SUCCESS", "accountNumber=" + accountNumber + ", currency=" + normalizedCurrency);
 
         return mapToAccountResponse(savedAccount);
     }
@@ -149,6 +156,8 @@ public class AccountServiceImpl implements AccountService, AccountApi {
         account.freeze();
         Account updated = accountRepository.save(account);
         log.info("Froze account id={}", accountId);
+        auditApi.recordAuditLog("STAFF_OR_ADMIN", "STAFF_OR_ADMIN", "ACCOUNT_FROZEN",
+                "ACCOUNT", accountId.toString(), null, "SUCCESS", null);
         return mapToAccountResponse(updated);
     }
 
@@ -162,6 +171,8 @@ public class AccountServiceImpl implements AccountService, AccountApi {
         account.unfreeze();
         Account updated = accountRepository.save(account);
         log.info("Unfroze account id={}", accountId);
+        auditApi.recordAuditLog("STAFF_OR_ADMIN", "STAFF_OR_ADMIN", "ACCOUNT_UNFROZEN",
+                "ACCOUNT", accountId.toString(), null, "SUCCESS", null);
         return mapToAccountResponse(updated);
     }
 
@@ -175,6 +186,8 @@ public class AccountServiceImpl implements AccountService, AccountApi {
         account.close();
         Account updated = accountRepository.save(account);
         log.info("Closed account id={}", accountId);
+        auditApi.recordAuditLog("ADMIN", "ADMIN", "ACCOUNT_CLOSED",
+                "ACCOUNT", accountId.toString(), null, "SUCCESS", null);
         return mapToAccountResponse(updated);
     }
 

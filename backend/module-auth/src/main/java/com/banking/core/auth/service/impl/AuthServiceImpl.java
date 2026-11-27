@@ -1,5 +1,6 @@
 package com.banking.core.auth.service.impl;
 
+import com.banking.core.audit.exposed.AuditApi;
 import com.banking.core.auth.api.dto.request.LoginRequest;
 import com.banking.core.auth.api.dto.request.LogoutRequest;
 import com.banking.core.auth.api.dto.request.RefreshTokenRequest;
@@ -56,6 +57,7 @@ public class AuthServiceImpl implements AuthService, AuthApi {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final JwtProperties jwtProperties;
+    private final AuditApi auditApi;
 
     @Override
     @Transactional
@@ -78,6 +80,9 @@ public class AuthServiceImpl implements AuthService, AuthApi {
 
         User savedUser = userRepository.save(user);
         log.info("Registered new customer user with id={} and username={}", savedUser.getId(), savedUser.getUsername());
+        auditApi.recordAuditLog(
+                savedUser.getId().toString(), Role.CUSTOMER.name(), "USER_REGISTERED",
+                "USER", savedUser.getId().toString(), null, "SUCCESS", "username=" + savedUser.getUsername());
 
         return issueTokens(savedUser);
     }
@@ -107,6 +112,10 @@ public class AuthServiceImpl implements AuthService, AuthApi {
 
             if (user.getStatus() == UserStatus.LOCKED) {
                 log.warn("User id={} locked after {} failed attempts", user.getId(), maxAttempts);
+                auditApi.recordAuditLog(
+                        user.getId().toString(), user.getRole().name(), "ACCOUNT_LOCKED",
+                        "USER", user.getId().toString(), null, "FAILURE",
+                        "Locked after " + maxAttempts + " failed attempts");
                 throw new AuthException(ErrorCode.ACCOUNT_LOCKED);
             }
             throw new AuthException(ErrorCode.INVALID_CREDENTIALS);
@@ -115,6 +124,9 @@ public class AuthServiceImpl implements AuthService, AuthApi {
         user.resetFailedLogins();
         userRepository.save(user);
         log.info("User id={} authenticated successfully", user.getId());
+        auditApi.recordAuditLog(
+                user.getId().toString(), user.getRole().name(), "USER_LOGIN",
+                "USER", user.getId().toString(), null, "SUCCESS", null);
 
         return issueTokens(user);
     }

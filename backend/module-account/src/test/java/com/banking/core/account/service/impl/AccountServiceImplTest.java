@@ -7,6 +7,7 @@ import com.banking.core.account.domain.enums.AccountStatus;
 import com.banking.core.account.domain.enums.AccountType;
 import com.banking.core.account.domain.exception.AccountException;
 import com.banking.core.account.domain.repository.AccountRepository;
+import com.banking.core.audit.exposed.AuditApi;
 import com.banking.core.auth.domain.enums.Role;
 import com.banking.core.common.exception.ErrorCode;
 import com.banking.core.common.exception.ResourceNotFoundException;
@@ -40,6 +41,9 @@ class AccountServiceImplTest {
 
     @Mock
     private CustomerApi customerApi;
+
+    @Mock
+    private AuditApi auditApi;
 
     @InjectMocks
     private AccountServiceImpl accountService;
