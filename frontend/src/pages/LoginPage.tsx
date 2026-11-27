@@ -21,7 +21,9 @@ export const LoginPage: React.FC = () => {
     setLoading(true);
     try {
       await login(usernameOrEmail.trim(), password);
-      navigate('/');
+      const redirect = sessionStorage.getItem('loginRedirect') || '/';
+      sessionStorage.removeItem('loginRedirect');
+      navigate(redirect);
     } catch (err) {
       setError(extractErrorMessage(err));
     } finally {
@@ -29,9 +31,14 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const fillDemo = (u: string, p: string) => {
+  const fillDemo = (u: string, p: string, redirectPath?: string) => {
     setUsernameOrEmail(u);
     setPassword(p);
+    if (redirectPath) {
+      sessionStorage.setItem('loginRedirect', redirectPath);
+    } else {
+      sessionStorage.removeItem('loginRedirect');
+    }
   };
 
   return (
@@ -114,32 +121,43 @@ export const LoginPage: React.FC = () => {
             </button>
           </form>
 
-          {/* Quick Demo Fill Buttons */}
+          {/* Quick Demo Fill Buttons for 4 Actors */}
           <div className="mt-6 pt-5 border-t border-slate-100">
-            <span className="block text-[11px] font-bold text-slate-400 mb-2 uppercase tracking-wider text-center">
+            <span className="block text-[11px] font-bold text-slate-400 mb-2.5 uppercase tracking-wider text-center">
               {t('login.quickTitle')}
             </span>
-            <div className="grid grid-cols-3 gap-2 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
               <button
                 type="button"
-                onClick={() => fillDemo('demo_user', 'Password@123')}
-                className="py-2 px-1 rounded-xl bg-sky-50 hover:bg-sky-100 border border-sky-100 text-sky-800 text-center font-bold transition-colors cursor-pointer"
+                onClick={() => fillDemo('demo_user', 'Password@123', '/')}
+                className="py-2.5 px-2 rounded-xl bg-sky-50 hover:bg-sky-100 border border-sky-100 text-sky-800 text-center font-bold transition-colors cursor-pointer flex flex-col items-center gap-0.5"
               >
-                {t('login.customer')}
+                <span>👤 {t('login.customer')}</span>
+                <span className="text-[10px] text-slate-400 font-normal">demo_user</span>
               </button>
               <button
                 type="button"
-                onClick={() => fillDemo('teller', 'Password@123')}
-                className="py-2 px-1 rounded-xl bg-sky-50 hover:bg-sky-100 border border-sky-100 text-sky-800 text-center font-bold transition-colors cursor-pointer"
+                onClick={() => fillDemo('demo_user', 'Password@123', '/seller')}
+                className="py-2.5 px-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 text-center font-bold transition-colors cursor-pointer flex flex-col items-center gap-0.5"
               >
-                {t('login.tellerRole')}
+                <span>🏪 {t('login.sellerRole')}</span>
+                <span className="text-[10px] text-slate-400 font-normal">Merchant POS</span>
               </button>
               <button
                 type="button"
-                onClick={() => fillDemo('admin', 'Password@123')}
-                className="py-2 px-1 rounded-xl bg-sky-50 hover:bg-sky-100 border border-sky-100 text-sky-800 text-center font-bold transition-colors cursor-pointer"
+                onClick={() => fillDemo('teller', 'Password@123', '/')}
+                className="py-2.5 px-2 rounded-xl bg-teal-50 hover:bg-teal-100 border border-teal-200 text-teal-800 text-center font-bold transition-colors cursor-pointer flex flex-col items-center gap-0.5"
               >
-                {t('login.adminRole')}
+                <span>🏦 {t('login.tellerRole')}</span>
+                <span className="text-[10px] text-slate-400 font-normal">Quầy Teller</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => fillDemo('admin', 'Password@123', '/')}
+                className="py-2.5 px-2 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-800 text-center font-bold transition-colors cursor-pointer flex flex-col items-center gap-0.5"
+              >
+                <span>🛡️ {t('login.adminRole')}</span>
+                <span className="text-[10px] text-slate-400 font-normal">Quản trị viên</span>
               </button>
             </div>
             <p className="text-[11px] text-slate-400 text-center mt-2.5 font-mono">

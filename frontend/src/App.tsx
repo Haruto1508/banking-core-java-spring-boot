@@ -11,6 +11,8 @@ import { AccountsPage } from './pages/AccountsPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { AdminTellerPage } from './pages/AdminTellerPage';
+import { AdminDashboardPage } from './pages/AdminDashboardPage';
+import { SellerPage } from './pages/SellerPage';
 import { WebhooksSePayPage } from './pages/WebhooksSePayPage';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -42,13 +44,15 @@ export function App() {
             }
           >
             <Route index element={<DashboardPage />} />
+            <Route path="seller" element={<SellerPage />} />
             <Route path="transfer" element={<TransferPage />} />
             <Route path="sepay" element={<WebhooksSePayPage />} />
             <Route path="payments" element={<PaymentsPage />} />
             <Route path="accounts" element={<AccountsPage />} />
             <Route path="notifications" element={<NotificationsPage />} />
             <Route path="profile" element={<ProfilePage />} />
-            <Route path="admin" element={<AdminTellerPage />} />
+            <Route path="admin" element={<AdminDashboardPage />} />
+            <Route path="teller" element={<AdminTellerPage />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

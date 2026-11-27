@@ -17,6 +17,7 @@ import {
   Radio,
   ShieldCheck,
   Sparkles,
+  Store,
   TrendingUp,
   Wallet,
   Zap,
@@ -26,10 +27,21 @@ import { accountApi, transactionApi } from '../api/bankingApi';
 import type { BankAccount, TransactionRecord } from '../types/banking';
 import { formatCurrency, formatDateTime } from '../utils/format';
 import { VietQRModal } from '../components/VietQRModal';
+import { AdminDashboardPage } from './AdminDashboardPage';
+import { AdminTellerPage } from './AdminTellerPage';
 
 export const DashboardPage: React.FC = () => {
   const { user, customer } = useAuth();
   const { t } = useTranslation();
+
+  // If user is ADMIN or STAFF, route them to their specialized portal directly
+  if (user?.role === 'ADMIN') {
+    return <AdminDashboardPage />;
+  }
+  if (user?.role === 'STAFF') {
+    return <AdminTellerPage />;
+  }
+
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<TransactionRecord[]>([]);
   const [hideBalance, setHideBalance] = useState(false);
@@ -40,6 +52,7 @@ export const DashboardPage: React.FC = () => {
 
   const QUICK_ACTIONS = [
     { to: '/transfer', icon: ArrowLeftRight, labelKey: 'quickActions.transfer', color: 'from-sky-500 to-blue-600', shadow: 'shadow-sky-500/20' },
+    { to: '/seller', icon: Store, labelKey: 'nav.sellerHub', color: 'from-emerald-500 to-teal-600', shadow: 'shadow-emerald-500/20' },
     { to: '/sepay', icon: Radio, labelKey: 'quickActions.sepay', color: 'from-blue-600 to-indigo-600', shadow: 'shadow-blue-500/20' },
     { to: '/payments', icon: QrCode, labelKey: 'quickActions.payments', color: 'from-cyan-500 to-teal-500', shadow: 'shadow-cyan-500/20' },
     { to: '/accounts', icon: CreditCard, labelKey: 'quickActions.accounts', color: 'from-indigo-500 to-violet-600', shadow: 'shadow-indigo-500/20' },
