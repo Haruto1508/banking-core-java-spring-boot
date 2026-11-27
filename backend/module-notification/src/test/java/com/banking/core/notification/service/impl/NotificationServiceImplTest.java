@@ -35,13 +35,16 @@ class NotificationServiceImplTest {
     @InjectMocks
     private NotificationServiceImpl notificationService;
 
+    @InjectMocks
+    private NotificationApiImpl notificationApi;
+
     @Test
     @DisplayName("sendEmailNotification: should save SENT notification record")
     void sendEmailNotification_shouldSaveSentRecord() {
         UUID userId = UUID.randomUUID();
         when(notificationRepository.save(any(Notification.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        notificationService.sendEmailNotification(
+        notificationApi.sendEmailNotification(
                 userId,
                 "customer@example.com",
                 "TRANSFER_COMPLETED",

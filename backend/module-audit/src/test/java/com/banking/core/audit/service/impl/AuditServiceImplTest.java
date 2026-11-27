@@ -21,13 +21,13 @@ class AuditServiceImplTest {
     private AuditLogRepository auditLogRepository;
 
     @InjectMocks
-    private AuditServiceImpl auditService;
+    private AuditApiImpl auditApi;
 
     @Test
     @DisplayName("recordAuditLog: should persist audit log and redact sensitive fields in metadata")
     void recordAuditLog_shouldRedactSensitiveMetadata() {
         // Act
-        auditService.recordAuditLog(
+        auditApi.recordAuditLog(
                 "user-123",
                 "CUSTOMER",
                 "LOGIN_ATTEMPT",
