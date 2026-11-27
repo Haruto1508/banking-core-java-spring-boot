@@ -3,6 +3,8 @@ package com.banking.core.account.domain.repository;
 import com.banking.core.account.domain.entity.Account;
 import com.banking.core.account.domain.enums.AccountStatus;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -24,6 +26,16 @@ public interface AccountRepository extends JpaRepository<Account, UUID> {
      * @return optional matching account
      */
     Optional<Account> findByAccountNumber(String accountNumber);
+
+    /**
+     * Returns all accounts ordered by creation date descending with pagination.
+     */
+    Page<Account> findAllByOrderByCreatedAtDesc(Pageable pageable);
+
+    /**
+     * Returns accounts filtered by status ordered by creation date descending with pagination.
+     */
+    Page<Account> findByStatusOrderByCreatedAtDesc(AccountStatus status, Pageable pageable);
 
     /**
      * Finds all accounts belonging to a specific customer.

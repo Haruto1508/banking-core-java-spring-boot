@@ -51,6 +51,11 @@ export const customerApi = {
 };
 
 export const accountApi = {
+  getAll: (page = 0, size = 50, status?: string) =>
+    apiClient.get<ApiResponse<PageResponse<BankAccount>>>('/accounts', {
+      params: { page, size, status: status || undefined },
+    }),
+
   open: (customerId: string, accountType: AccountType, currency: string) =>
     apiClient.post<ApiResponse<BankAccount>>('/accounts', { customerId, accountType, currency }),
 

@@ -4,6 +4,8 @@ import com.banking.core.account.api.dto.request.OpenAccountRequest;
 import com.banking.core.account.api.dto.request.UpdateAccountStatusRequest;
 import com.banking.core.account.api.dto.response.AccountResponse;
 import com.banking.core.auth.domain.enums.Role;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.UUID;
@@ -104,4 +106,14 @@ public interface AccountService {
      * @return updated account DTO
      */
     AccountResponse closeAccount(UUID accountId);
+
+    /**
+     * Lists all bank accounts with optional status filter and pagination.
+     * Accessible by ADMIN and STAFF.
+     *
+     * @param status   optional status filter (ACTIVE, FROZEN, CLOSED)
+     * @param pageable pagination parameters
+     * @return page of account response DTOs
+     */
+    Page<AccountResponse> getAllAccounts(String status, Pageable pageable);
 }

@@ -2,14 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  Activity,
   CheckCircle2,
   Database,
-  FileText,
   Lock,
   PlusCircle,
   Radio,
   RotateCcw,
+  RotateCw,
   Scale,
   Search,
   Server,
@@ -17,8 +16,7 @@ import {
   ShieldCheck,
   Unlock,
   UserCheck,
-  Vault,
-  Wallet,
+  X,
   Zap,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -39,7 +37,7 @@ const SYSTEM_VAULTS = [
 export const AdminDashboardPage: React.FC = () => {
   const { user } = useAuth();
   const { t } = useTranslation();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const validTabs = ['overview', 'allocate', 'accounts', 'reversal', 'audit', 'reconcile', 'vaults'] as const;
   type TabType = typeof validTabs[number];
 
@@ -53,27 +51,21 @@ export const AdminDashboardPage: React.FC = () => {
       if (tabParam === 'audit') {
         loadAuditLogs(auditStatusFilter);
       }
+      if (tabParam === 'accounts') {
+        loadAllAccounts(accountStatusFilter);
+      }
     }
   }, [tabParam]);
 
-  const handleTabChange = (tabId: TabType) => {
-    setActiveTab(tabId);
-    if (tabId === 'overview') {
-      searchParams.delete('tab');
-      setSearchParams(searchParams);
-    } else {
-      setSearchParams({ tab: tabId });
-    }
-    if (tabId === 'audit') {
-      loadAuditLogs(auditStatusFilter);
-    }
-  };
-
   // Account Management state
-  const [accountQuery, setAccountQuery] = useState('');
   const [resolvedAccount, setResolvedAccount] = useState<BankAccount | null>(null);
-  const [resolving, setResolving] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+
+  // All Accounts list state
+  const [accountList, setAccountList] = useState<BankAccount[]>([]);
+  const [accountListLoading, setAccountListLoading] = useState(false);
+  const [accountStatusFilter, setAccountStatusFilter] = useState('');
+  const [accountSearchText, setAccountSearchText] = useState('');
 
   // Allocation (Cấp phát tài khoản) state
   const [allocateCustomerId, setAllocateCustomerId] = useState('');
@@ -116,33 +108,14 @@ export const AdminDashboardPage: React.FC = () => {
     type: 'error',
   });
 
-  // Lookup account
-  const handleLookup = async (inputVal: string) => {
-    const val = inputVal.trim();
-    if (!val) { setResolvedAccount(null); return; }
-    setResolving(true);
-    try {
-      if (val.length === 36 && val.includes('-')) {
-        const res = await accountApi.getById(val);
-        setResolvedAccount(res.data.data);
-      } else {
-        const res = await accountApi.lookupByNumber(val);
-        setResolvedAccount(res.data.data);
-      }
-    } catch {
-      setResolvedAccount(null);
-    } finally {
-      setResolving(false);
-    }
-  };
-
   // Freeze / Unfreeze
-  const handleToggleFreeze = async (freeze: boolean) => {
-    if (!resolvedAccount) return;
+  const handleToggleFreeze = async (freeze: boolean, targetAccount?: BankAccount) => {
+    const acc = targetAccount || resolvedAccount;
+    if (!acc) return;
     setActionLoading(true);
     try {
       if (freeze) {
-        await accountApi.freeze(resolvedAccount.id);
+        await accountApi.freeze(acc.id);
         setAlertModal({
           isOpen: true,
           title: t('common.successTitle'),
@@ -150,7 +123,7 @@ export const AdminDashboardPage: React.FC = () => {
           type: 'success',
         });
       } else {
-        await accountApi.unfreeze(resolvedAccount.id);
+        await accountApi.unfreeze(acc.id);
         setAlertModal({
           isOpen: true,
           title: t('common.successTitle'),
@@ -158,8 +131,9 @@ export const AdminDashboardPage: React.FC = () => {
           type: 'success',
         });
       }
-      const refreshed = await accountApi.getById(resolvedAccount.id);
+      const refreshed = await accountApi.getById(acc.id);
       setResolvedAccount(refreshed.data.data);
+      await loadAllAccounts(accountStatusFilter);
     } catch (err) {
       setAlertModal({
         isOpen: true,
@@ -169,6 +143,47 @@ export const AdminDashboardPage: React.FC = () => {
       });
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  // Close account permanently
+  const handleCloseAccount = async (targetAccount?: BankAccount) => {
+    const acc = targetAccount || resolvedAccount;
+    if (!acc) return;
+    setActionLoading(true);
+    try {
+      await accountApi.close(acc.id);
+      setAlertModal({
+        isOpen: true,
+        title: t('common.successTitle'),
+        message: `Đã đóng tài khoản ${acc.accountNumber} thành công!`,
+        type: 'success',
+      });
+      const refreshed = await accountApi.getById(acc.id);
+      setResolvedAccount(refreshed.data.data);
+      await loadAllAccounts(accountStatusFilter);
+    } catch (err) {
+      setAlertModal({
+        isOpen: true,
+        title: t('common.errorTitle'),
+        message: extractErrorMessage(err),
+        type: 'error',
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Load All Accounts with status filter
+  const loadAllAccounts = async (status = '') => {
+    setAccountListLoading(true);
+    try {
+      const res = await accountApi.getAll(0, 100, status);
+      setAccountList(res.data.data.content);
+    } catch {
+      setAccountList([]);
+    } finally {
+      setAccountListLoading(false);
     }
   };
 
@@ -311,6 +326,7 @@ export const AdminDashboardPage: React.FC = () => {
     handleSearchCustomers('');
     loadVaults();
     loadAuditLogs('');
+    loadAllAccounts('');
   }, []);
 
   return (
@@ -339,33 +355,6 @@ export const AdminDashboardPage: React.FC = () => {
             <span>Cluster Healthy (5/5 Services)</span>
           </div>
         </div>
-      </div>
-
-      {/* ─── Navigation Tabs ─── */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-sky-100">
-        {[
-          { id: 'overview', label: t('admin.tabOverview'), icon: Activity },
-          { id: 'allocate', label: t('admin.tabAllocate'), icon: PlusCircle },
-          { id: 'accounts', label: t('admin.tabAccounts'), icon: Wallet },
-          { id: 'reversal', label: t('admin.tabReversal'), icon: RotateCcw },
-          { id: 'audit', label: t('admin.tabAudit'), icon: FileText },
-          { id: 'reconcile', label: t('admin.tabReconcile'), icon: Scale },
-          { id: 'vaults', label: t('admin.tabVaults'), icon: Vault },
-        ].map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => handleTabChange(id as TabType)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === id
-                ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20'
-                : 'bg-white hover:bg-sky-50 text-slate-600 border border-sky-100 hover:border-sky-200'
-            }`}
-          >
-            <Icon className="h-4 w-4" />
-            <span>{label}</span>
-          </button>
-        ))}
       </div>
 
       {/* ─── TAB 1: OVERVIEW & SYSTEM HEALTH ─── */}
@@ -553,113 +542,364 @@ export const AdminDashboardPage: React.FC = () => {
         </div>
       )}
 
-      {/* ─── TAB 3: ACCOUNTS MANAGEMENT (LOOKUP & FREEZE) ─── */}
+      {/* ─── TAB 3: ACCOUNTS MANAGEMENT (ALL ACCOUNTS LIST & CONTROL) ─── */}
       {activeTab === 'accounts' && (
-        <div className="bg-white border border-sky-100 rounded-3xl p-5 sm:p-6 space-y-5 shadow-xs">
-          <div>
-            <h2 className="text-sm font-extrabold text-slate-900 mb-1">{t('admin.searchAccount')}</h2>
-            <p className="text-[11px] text-slate-500">{t('admin.sub')}</p>
-          </div>
+        <div className="space-y-5">
+          {/* Header & Controls Bar */}
+          <div className="bg-white border border-sky-100 rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-base sm:text-lg font-black text-slate-900 leading-tight">
+                  Quản Lý & Kiểm Soát Danh Sách Tài Khoản Toàn Hệ Thống
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Theo dõi danh sách toàn bộ tài khoản khách hàng và tài khoản kho quỹ GL, hỗ trợ phong tỏa, mở khóa và tất toán.
+                </p>
+              </div>
 
-          <div className="relative">
-            <input
-              type="text"
-              value={accountQuery}
-              onChange={(e) => {
-                setAccountQuery(e.target.value);
-                handleLookup(e.target.value);
-              }}
-              placeholder={t('admin.searchAccountPlaceholder')}
-              className="w-full pl-3.5 pr-10 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-sm font-mono text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
-            />
-            <div className="absolute right-3.5 top-3.5 flex items-center gap-1.5">
-              {resolving && <span className="text-[11px] text-sky-600 animate-pulse font-medium">Đang tìm...</span>}
-              <Search className="h-4 w-4 text-slate-400" />
+              <button
+                type="button"
+                onClick={() => loadAllAccounts(accountStatusFilter)}
+                disabled={accountListLoading}
+                className="self-start sm:self-auto flex items-center gap-2 px-3.5 py-2 rounded-xl bg-sky-50 hover:bg-sky-100 border border-sky-200 text-sky-800 text-xs font-bold transition-colors cursor-pointer shadow-2xs"
+              >
+                <RotateCw className={`h-4 w-4 ${accountListLoading ? 'animate-spin text-sky-600' : ''}`} />
+                <span>Làm mới danh sách</span>
+              </button>
+            </div>
+
+            {/* Filter and Search Bar */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2 border-t border-slate-100">
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  value={accountSearchText}
+                  onChange={(e) => setAccountSearchText(e.target.value)}
+                  placeholder="Tìm theo số tài khoản, mã CIF, ID tài khoản..."
+                  className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-mono text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                />
+                <Search className="h-4 w-4 text-slate-400 absolute left-3 top-3" />
+                {accountSearchText && (
+                  <button
+                    type="button"
+                    onClick={() => setAccountSearchText('')}
+                    className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 text-xs cursor-pointer"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+
+              {/* Status Filter Pills */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+                {[
+                  { id: '', label: 'Tất cả' },
+                  { id: 'ACTIVE', label: 'Đang hoạt động' },
+                  { id: 'FROZEN', label: 'Bị phong tỏa' },
+                  { id: 'CLOSED', label: 'Đã đóng' },
+                ].map(({ id, label }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => {
+                      setAccountStatusFilter(id);
+                      loadAllAccounts(id);
+                    }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                      accountStatusFilter === id
+                        ? 'bg-rose-600 text-white shadow-2xs'
+                        : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/80'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
-          {/* Sample quick buttons */}
-          <div className="flex flex-wrap gap-2 text-xs">
-            <span className="text-slate-400 text-[11px] self-center">Chọn nhanh:</span>
-            {['ACC-DEMO-001', 'ACC-DEMO-002', 'SYS-GL-VAULT-001', 'SYS-CASH-VAULT-001'].map((acc) => (
-              <button
-                key={acc}
-                type="button"
-                onClick={() => {
-                  setAccountQuery(acc);
-                  handleLookup(acc);
-                }}
-                className="px-2.5 py-1 rounded-xl bg-sky-50 hover:bg-sky-100 border border-sky-200/80 text-sky-800 text-[11px] font-mono font-bold cursor-pointer transition-colors"
-              >
-                {acc}
-              </button>
-            ))}
-          </div>
-
-          {/* Account Detail Card */}
+          {/* Selected Account Inspection & Action Card */}
           {resolvedAccount && (
-            <div className="p-5 rounded-2xl bg-sky-50/60 border border-sky-200 space-y-4 animate-in fade-in">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="p-5 rounded-3xl bg-white border-2 border-rose-200 shadow-md space-y-4 animate-in fade-in">
+              <div className="flex items-center justify-between border-b border-rose-100 pb-3">
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-xl bg-sky-500 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                  <div className="h-10 w-10 rounded-2xl bg-gradient-to-tr from-rose-500 to-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
                     <UserCheck className="h-5 w-5" />
                   </div>
                   <div>
-                    <div className="text-sm font-bold text-slate-900 font-mono">{resolvedAccount.accountNumber}</div>
-                    <div className="text-[11px] text-slate-500">
-                      Loại: {resolvedAccount.accountType} · Tiền tệ: {resolvedAccount.currency}
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm sm:text-base font-black text-slate-900 font-mono">
+                        {resolvedAccount.accountNumber}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-700 uppercase">
+                        {resolvedAccount.accountType}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-500 font-mono mt-0.5">
+                      UUID: {resolvedAccount.id} · Tiền tệ: {resolvedAccount.currency}
                     </div>
                   </div>
                 </div>
 
-                <div className="text-right">
-                  <div className="text-lg font-black text-slate-900 tabular-nums">
-                    {formatCurrency(Number(resolvedAccount.balance), resolvedAccount.currency)}
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <div className="text-lg sm:text-xl font-black text-slate-900 tabular-nums">
+                      {formatCurrency(Number(resolvedAccount.balance), resolvedAccount.currency)}
+                    </div>
+                    <span
+                      className={`inline-block mt-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                        resolvedAccount.status === 'ACTIVE'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : resolvedAccount.status === 'FROZEN'
+                          ? 'bg-amber-50 text-amber-700 border-amber-200'
+                          : 'bg-rose-50 text-rose-700 border-rose-200'
+                      }`}
+                    >
+                      {resolvedAccount.status}
+                    </span>
                   </div>
-                  <span
-                    className={`inline-block mt-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                      resolvedAccount.status === 'ACTIVE'
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        : resolvedAccount.status === 'FROZEN'
-                        ? 'bg-amber-50 text-amber-700 border-amber-200'
-                        : 'bg-rose-50 text-rose-700 border-rose-200'
-                    }`}
+
+                  <button
+                    type="button"
+                    onClick={() => setResolvedAccount(null)}
+                    className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 cursor-pointer transition-colors"
+                    title="Đóng panel chi tiết"
                   >
-                    {resolvedAccount.status}
-                  </span>
+                    <X className="h-5 w-5" />
+                  </button>
                 </div>
               </div>
 
-              <div className="text-[11px] text-slate-400 font-mono pt-2 border-t border-sky-100">
-                UUID: {resolvedAccount.id}
-              </div>
+              {/* Action Buttons: Freeze / Unfreeze / Close */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  {resolvedAccount.status === 'ACTIVE' && (
+                    <button
+                      type="button"
+                      disabled={actionLoading}
+                      onClick={() => handleToggleFreeze(true)}
+                      className="py-2.5 px-4 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-xs font-bold flex items-center gap-2 cursor-pointer transition-colors shadow-2xs"
+                    >
+                      <Lock className="h-4 w-4" />
+                      <span>Phong tỏa tài khoản (Freeze)</span>
+                    </button>
+                  )}
 
-              {/* Action Buttons: Freeze / Unfreeze */}
-              <div className="flex gap-2.5 pt-2">
-                {resolvedAccount.status === 'ACTIVE' ? (
-                  <button
-                    type="button"
-                    disabled={actionLoading}
-                    onClick={() => handleToggleFreeze(true)}
-                    className="py-2.5 px-4 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-2 cursor-pointer transition-colors shadow-2xs"
-                  >
-                    <Lock className="h-4 w-4" />
-                    <span>Phong tỏa tài khoản (Freeze)</span>
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={actionLoading}
-                    onClick={() => handleToggleFreeze(false)}
-                    className="py-2.5 px-4 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-xs font-bold flex items-center gap-2 cursor-pointer transition-colors shadow-2xs"
-                  >
-                    <Unlock className="h-4 w-4" />
-                    <span>Mở khóa tài khoản (Unfreeze)</span>
-                  </button>
-                )}
+                  {resolvedAccount.status === 'FROZEN' && (
+                    <button
+                      type="button"
+                      disabled={actionLoading}
+                      onClick={() => handleToggleFreeze(false)}
+                      className="py-2.5 px-4 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2 cursor-pointer transition-colors shadow-2xs"
+                    >
+                      <Unlock className="h-4 w-4" />
+                      <span>Mở khóa tài khoản (Unfreeze)</span>
+                    </button>
+                  )}
+
+                  {resolvedAccount.status !== 'CLOSED' && Number(resolvedAccount.balance) === 0 && (
+                    <button
+                      type="button"
+                      disabled={actionLoading}
+                      onClick={() => handleCloseAccount()}
+                      className="py-2.5 px-4 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-2 cursor-pointer transition-colors shadow-2xs"
+                    >
+                      <X className="h-4 w-4" />
+                      <span>Đóng tài khoản vĩnh viễn (Close)</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="text-[11px] text-slate-400">
+                  {resolvedAccount.status === 'ACTIVE'
+                    ? 'Tài khoản đang sẵn sàng nhận và gửi tiền.'
+                    : resolvedAccount.status === 'FROZEN'
+                    ? 'Tài khoản đang bị đóng băng tạm thời, không thể giao dịch.'
+                    : 'Tài khoản đã đóng tất toán vĩnh viễn.'}
+                </div>
               </div>
             </div>
           )}
+
+          {/* Full Table of Accounts */}
+          <div className="bg-white border border-sky-100 rounded-3xl overflow-hidden shadow-xs">
+            <div className="px-5 py-3.5 border-b border-sky-50 flex items-center justify-between bg-sky-50/40">
+              <div className="text-xs font-bold text-slate-700">
+                Danh sách tài khoản ({accountList.filter((acc) => {
+                  if (accountSearchText.trim()) {
+                    const q = accountSearchText.toLowerCase();
+                    const matchesNum = acc.accountNumber.toLowerCase().includes(q);
+                    const matchesId = acc.id.toLowerCase().includes(q);
+                    const matchesCust = acc.customerId ? acc.customerId.toLowerCase().includes(q) : false;
+                    return matchesNum || matchesId || matchesCust;
+                  }
+                  return true;
+                }).length} / {accountList.length} tài khoản)
+              </div>
+              <div className="text-[11px] text-slate-400 font-mono">
+                CORE-BANKING · ACCOUNTS-LEDGER
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-sky-100 bg-slate-50/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    <th className="py-3 px-4">Số tài khoản</th>
+                    <th className="py-3 px-4">Loại SP</th>
+                    <th className="py-3 px-4">Chủ sở hữu / Khách hàng</th>
+                    <th className="py-3 px-4 text-right">Số dư khả dụng</th>
+                    <th className="py-3 px-4 text-center">Trạng thái</th>
+                    <th className="py-3 px-4">Ngày mở</th>
+                    <th className="py-3 px-4 text-right">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-sans">
+                  {accountListLoading ? (
+                    <tr>
+                      <td colSpan={7} className="py-12 text-center text-slate-400">
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <RotateCw className="h-6 w-6 animate-spin text-rose-500" />
+                          <span className="text-xs font-medium">Đang tải danh sách tài khoản từ hệ thống...</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : accountList
+                      .filter((acc) => {
+                        if (accountSearchText.trim()) {
+                          const q = accountSearchText.toLowerCase();
+                          const matchesNum = acc.accountNumber.toLowerCase().includes(q);
+                          const matchesId = acc.id.toLowerCase().includes(q);
+                          const matchesCust = acc.customerId ? acc.customerId.toLowerCase().includes(q) : false;
+                          return matchesNum || matchesId || matchesCust;
+                        }
+                        return true;
+                      })
+                      .length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-10 text-center text-slate-400 text-xs">
+                        Không tìm thấy tài khoản nào phù hợp với điều kiện tìm kiếm.
+                      </td>
+                    </tr>
+                  ) : (
+                    accountList
+                      .filter((acc) => {
+                        if (accountSearchText.trim()) {
+                          const q = accountSearchText.toLowerCase();
+                          const matchesNum = acc.accountNumber.toLowerCase().includes(q);
+                          const matchesId = acc.id.toLowerCase().includes(q);
+                          const matchesCust = acc.customerId ? acc.customerId.toLowerCase().includes(q) : false;
+                          return matchesNum || matchesId || matchesCust;
+                        }
+                        return true;
+                      })
+                      .map((acc) => {
+                        const isSelected = resolvedAccount?.id === acc.id;
+                        return (
+                          <tr
+                            key={acc.id}
+                            className={`hover:bg-sky-50/50 transition-colors ${
+                              isSelected ? 'bg-rose-50/40 font-semibold' : ''
+                            }`}
+                          >
+                            <td className="py-3 px-4 font-mono font-bold text-slate-900">
+                              <button
+                                type="button"
+                                onClick={() => setResolvedAccount(acc)}
+                                className="hover:text-rose-600 transition-colors cursor-pointer text-left font-mono"
+                              >
+                                {acc.accountNumber}
+                              </button>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span
+                                className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${
+                                  acc.accountType === 'SYSTEM'
+                                    ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                                    : acc.accountType === 'SAVINGS'
+                                    ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                    : 'bg-slate-100 text-slate-700'
+                                }`}
+                              >
+                                {acc.accountType}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-slate-600 font-mono text-[11px]">
+                              {acc.customerId ? (
+                                <span title={acc.customerId}>
+                                  {customerList.find((c) => c.id === acc.customerId)?.fullName ||
+                                    acc.customerId.substring(0, 13) + '...'}
+                                </span>
+                              ) : (
+                                <span className="text-purple-600 font-bold">Kho quỹ Hệ thống GL</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-right font-black text-slate-900 font-mono tabular-nums">
+                              {formatCurrency(Number(acc.balance), acc.currency)}
+                            </td>
+                            <td className="py-3 px-4 text-center">
+                              <span
+                                className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                                  acc.status === 'ACTIVE'
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                    : acc.status === 'FROZEN'
+                                    ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                    : 'bg-rose-50 text-rose-700 border-rose-200'
+                                }`}
+                              >
+                                {acc.status}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-slate-500 text-[11px] whitespace-nowrap">
+                              {formatDateTime(acc.createdAt)}
+                            </td>
+                            <td className="py-3 px-4 text-right whitespace-nowrap">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setResolvedAccount(acc)}
+                                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition-colors ${
+                                    isSelected
+                                      ? 'bg-rose-600 text-white shadow-2xs'
+                                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                                  }`}
+                                >
+                                  {isSelected ? 'Đang chọn' : 'Quản lý'}
+                                </button>
+
+                                {acc.status === 'ACTIVE' && (
+                                  <button
+                                    type="button"
+                                    disabled={actionLoading}
+                                    onClick={() => handleToggleFreeze(true, acc)}
+                                    className="p-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 cursor-pointer transition-colors"
+                                    title="Khóa tài khoản"
+                                  >
+                                    <Lock className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
+
+                                {acc.status === 'FROZEN' && (
+                                  <button
+                                    type="button"
+                                    disabled={actionLoading}
+                                    onClick={() => handleToggleFreeze(false, acc)}
+                                    className="p-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 cursor-pointer transition-colors"
+                                    title="Mở khóa tài khoản"
+                                  >
+                                    <Unlock className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 

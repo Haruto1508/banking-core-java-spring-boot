@@ -10,7 +10,6 @@ import {
   Play,
   PlusCircle,
   QrCode,
-  Receipt,
   RefreshCw,
   Search,
   Store,
@@ -36,7 +35,7 @@ const QUICK_AMOUNTS = [50_000, 100_000, 200_000, 500_000, 1_000_000, 2_000_000, 
 export const SellerPage: React.FC = () => {
   const { customer, user } = useAuth();
   const { t, i18n } = useTranslation();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const validTabs = ['pos', 'deposit', 'withdraw', 'transfer', 'openAccount', 'history'] as const;
   type TabType = typeof validTabs[number];
 
@@ -49,16 +48,6 @@ export const SellerPage: React.FC = () => {
       setActiveTab(tabParam);
     }
   }, [tabParam]);
-
-  const handleTabChange = (tabId: TabType) => {
-    setActiveTab(tabId);
-    if (tabId === 'pos') {
-      searchParams.delete('tab');
-      setSearchParams(searchParams);
-    } else {
-      setSearchParams({ tab: tabId });
-    }
-  };
 
   // Seller receiving accounts
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
@@ -555,32 +544,6 @@ export const SellerPage: React.FC = () => {
               {value}
             </div>
           </div>
-        ))}
-      </div>
-
-      {/* ─── Navigation Tabs for Direct Operations ─── */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-sky-100">
-        {[
-          { id: 'pos', label: t('seller.tabDirectPOS'), icon: QrCode },
-          { id: 'deposit', label: t('seller.tabDirectDeposit'), icon: ArrowDownLeft },
-          { id: 'withdraw', label: t('seller.tabDirectWithdraw'), icon: ArrowUpRight },
-          { id: 'transfer', label: 'Chuyển tiền tại quầy', icon: ArrowLeftRight },
-          { id: 'openAccount', label: t('seller.tabDirectOpen'), icon: PlusCircle },
-          { id: 'history', label: t('seller.tabDirectHistory'), icon: Receipt },
-        ].map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => handleTabChange(id as TabType)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === id
-                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
-                : 'bg-white hover:bg-sky-50 text-slate-600 border border-sky-100 hover:border-sky-200'
-            }`}
-          >
-            <Icon className="h-4 w-4" />
-            <span>{label}</span>
-          </button>
         ))}
       </div>
 

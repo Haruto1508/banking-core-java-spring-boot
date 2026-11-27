@@ -17,6 +17,8 @@ import com.banking.core.customer.exposed.CustomerSummaryDto;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -234,6 +236,23 @@ public class AccountServiceImpl implements AccountService {
                 throw new AccessDeniedException("Customers can only access their own accounts");
             }
         }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<AccountResponse> getAllAccounts(String status, Pageable pageable) {
+        Page<Account> page;
+        if (status != null && !status.isBlank()) {
+            try {
+                AccountStatus accountStatus = AccountStatus.valueOf(status.toUpperCase());
+                page = accountRepository.findByStatusOrderByCreatedAtDesc(accountStatus, pageable);
+            } catch (IllegalArgumentException e) {
+                page = accountRepository.findAllByOrderByCreatedAtDesc(pageable);
+            }
+        } else {
+            page = accountRepository.findAllByOrderByCreatedAtDesc(pageable);
+        }
+        return page.map(this::mapToAccountResponse);
     }
 
     /**

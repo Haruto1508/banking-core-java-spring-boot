@@ -7,6 +7,9 @@ import com.banking.core.auth.security.BankingUserDetails;
 import com.banking.core.common.dto.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -126,5 +129,21 @@ public class AccountController {
     public ApiResponse<AccountResponse> closeAccount(@PathVariable UUID accountId) {
         AccountResponse response = accountService.closeAccount(accountId);
         return ApiResponse.success("Account closed successfully", response);
+    }
+
+    /**
+     * Lists all bank accounts with optional status filter and pagination.
+     * Accessible by ADMIN and STAFF roles.
+     */
+    @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+    public ApiResponse<Page<AccountResponse>> getAllAccounts(
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "50") int size,
+            @RequestParam(value = "status", required = false) String status) {
+
+        PageRequest pageRequest = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<AccountResponse> result = accountService.getAllAccounts(status, pageRequest);
+        return ApiResponse.success("Accounts retrieved successfully", result);
     }
 }
