@@ -27,20 +27,10 @@ import { accountApi, transactionApi } from '../api/bankingApi';
 import type { BankAccount, TransactionRecord } from '../types/banking';
 import { formatCurrency, formatDateTime } from '../utils/format';
 import { VietQRModal } from '../components/VietQRModal';
-import { AdminDashboardPage } from './AdminDashboardPage';
-import { AdminTellerPage } from './AdminTellerPage';
 
 export const DashboardPage: React.FC = () => {
   const { user, customer } = useAuth();
   const { t } = useTranslation();
-
-  // If user is ADMIN or STAFF, route them to their specialized portal directly
-  if (user?.role === 'ADMIN') {
-    return <AdminDashboardPage />;
-  }
-  if (user?.role === 'STAFF') {
-    return <AdminTellerPage />;
-  }
 
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<TransactionRecord[]>([]);

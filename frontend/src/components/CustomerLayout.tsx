@@ -2,7 +2,6 @@ import React from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  Activity,
   ArrowLeftRight,
   Bell,
   CreditCard,
@@ -11,16 +10,12 @@ import {
   LogOut,
   QrCode,
   Radio,
-  ShieldAlert,
-  ShieldCheck,
-  Store,
   User,
-  Wallet,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { LanguageSwitcher } from './LanguageSwitcher';
 
-export const AppShell: React.FC = () => {
+export const CustomerLayout: React.FC = () => {
   const { user, customer, logout } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -30,100 +25,58 @@ export const AppShell: React.FC = () => {
     navigate('/login');
   };
 
-  const isAdmin = user?.role === 'ADMIN';
-  const isStaff = user?.role === 'STAFF';
+  const customerNavItems = [
+    { to: '/', label: t('nav.overview'), icon: Home },
+    { to: '/transfer', label: t('nav.transfer'), icon: ArrowLeftRight },
+    { to: '/payments', label: t('nav.payments'), icon: QrCode },
+    { to: '/sepay', label: t('nav.sepay'), icon: Radio },
+    { to: '/accounts', label: t('nav.accounts'), icon: CreditCard },
+    { to: '/notifications', label: t('nav.notifications'), icon: Bell },
+    { to: '/profile', label: t('nav.profile'), icon: User },
+  ];
 
-  // Actor-specific navigation items
-  let navItems: Array<{ to: string; label: string; icon: any }>;
-  let bottomNavItems: Array<{ to: string; label: string; icon: any }>;
-
-  if (isAdmin) {
-    navItems = [
-      { to: '/', label: t('nav.adminDashboard'), icon: Activity },
-      { to: '/admin', label: t('nav.adminAccounts'), icon: ShieldAlert },
-      { to: '/teller', label: t('nav.tellerDesk'), icon: ShieldCheck },
-      { to: '/sepay', label: t('nav.sepay'), icon: Radio },
-      { to: '/notifications', label: t('nav.notifications'), icon: Bell },
-      { to: '/profile', label: t('nav.profile'), icon: User },
-    ];
-    bottomNavItems = [
-      { to: '/', label: t('nav.adminDashboard'), icon: Activity },
-      { to: '/admin', label: t('nav.adminAccounts'), icon: ShieldAlert },
-      { to: '/teller', label: t('nav.tellerDesk'), icon: ShieldCheck },
-      { to: '/sepay', label: t('nav.sepay'), icon: Radio },
-      { to: '/profile', label: t('nav.profile'), icon: User },
-    ];
-  } else if (isStaff) {
-    navItems = [
-      { to: '/', label: t('nav.tellerDesk'), icon: ShieldCheck },
-      { to: '/teller', label: t('nav.teller'), icon: Wallet },
-      { to: '/sepay', label: t('nav.sepay'), icon: Radio },
-      { to: '/notifications', label: t('nav.notifications'), icon: Bell },
-      { to: '/profile', label: t('nav.profile'), icon: User },
-    ];
-    bottomNavItems = [
-      { to: '/', label: t('nav.tellerDesk'), icon: ShieldCheck },
-      { to: '/teller', label: t('nav.teller'), icon: Wallet },
-      { to: '/sepay', label: t('nav.sepay'), icon: Radio },
-      { to: '/notifications', label: t('nav.notifications'), icon: Bell },
-      { to: '/profile', label: t('nav.profile'), icon: User },
-    ];
-  } else {
-    // CUSTOMER & SELLER
-    navItems = [
-      { to: '/', label: t('nav.overview'), icon: Home },
-      { to: '/seller', label: t('nav.sellerHub'), icon: Store },
-      { to: '/transfer', label: t('nav.transfer'), icon: ArrowLeftRight },
-      { to: '/payments', label: t('nav.payments'), icon: QrCode },
-      { to: '/sepay', label: t('nav.sepay'), icon: Radio },
-      { to: '/accounts', label: t('nav.accounts'), icon: CreditCard },
-      { to: '/notifications', label: t('nav.notifications'), icon: Bell },
-      { to: '/profile', label: t('nav.profile'), icon: User },
-    ];
-    bottomNavItems = [
-      { to: '/', label: t('nav.home'), icon: Home },
-      { to: '/seller', label: t('nav.sellerHub'), icon: Store },
-      { to: '/transfer', label: t('nav.transfer'), icon: ArrowLeftRight },
-      { to: '/accounts', label: t('nav.accounts'), icon: CreditCard },
-      { to: '/profile', label: t('nav.profile'), icon: User },
-    ];
-  }
+  const bottomNavItems = [
+    { to: '/', label: t('nav.home'), icon: Home },
+    { to: '/transfer', label: t('nav.transfer'), icon: ArrowLeftRight },
+    { to: '/payments', label: t('nav.payments'), icon: QrCode },
+    { to: '/accounts', label: t('nav.accounts'), icon: CreditCard },
+    { to: '/profile', label: t('nav.profile'), icon: User },
+  ];
 
   return (
     <div className="min-h-screen bg-slate-50/80 flex flex-col md:flex-row font-sans text-slate-900">
-      {/* Desktop Sidebar - Clean Light Theme with Sky Blue Accents */}
+      {/* Desktop Sidebar - Clean Light Sky Blue Theme specifically for Customer */}
       <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 bg-white border-r border-sky-100/90 shadow-xs z-20">
         <div className="flex items-center justify-between px-5 py-4 border-b border-sky-100/80">
           <div className="flex items-center gap-3">
-            <div
-              className={`h-10 w-10 rounded-2xl text-white font-bold shadow-md flex items-center justify-center ${
-                isAdmin
-                  ? 'bg-gradient-to-tr from-rose-500 to-indigo-600 shadow-rose-500/20'
-                  : isStaff
-                  ? 'bg-gradient-to-tr from-emerald-500 to-teal-600 shadow-emerald-500/20'
-                  : 'bg-gradient-to-tr from-sky-500 to-blue-600 shadow-sky-500/20'
-              }`}
-            >
+            <div className="h-10 w-10 rounded-2xl bg-gradient-to-tr from-sky-500 to-blue-600 text-white font-bold shadow-md shadow-sky-500/20 flex items-center justify-center">
               <Landmark className="h-5 w-5" />
             </div>
             <div>
               <div className="font-extrabold tracking-tight text-base text-slate-900">
-                {isAdmin ? 'NovaBank Admin' : isStaff ? 'NovaBank Teller' : t('common.appName')}
+                {t('common.appName')}
               </div>
               <div className="text-[11px] text-sky-600 font-medium">
-                {isAdmin ? 'System Control Portal' : isStaff ? 'Quầy Giao Dịch Viên' : t('common.coreEngine')}
+                {t('common.coreEngine')}
               </div>
             </div>
           </div>
         </div>
 
+        {/* Language Selection */}
         <div className="px-4 py-2 border-b border-sky-50 flex items-center justify-between">
-          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Ngôn ngữ / Lang</span>
+          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+            Ngôn ngữ / Lang
+          </span>
           <LanguageSwitcher />
         </div>
 
+        {/* Customer Navigation */}
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {navItems.map(({ to, label, icon: Icon }) => (
+          <div className="px-3 pb-2 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+            Dịch Vụ Khách Hàng
+          </div>
+          {customerNavItems.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
@@ -142,7 +95,7 @@ export const AppShell: React.FC = () => {
           ))}
         </nav>
 
-        {/* User Card & Logout */}
+        {/* Customer Profile & Logout */}
         <div className="p-4 border-t border-sky-100/80 bg-sky-50/40">
           <div className="flex items-center justify-between gap-2 mb-3">
             <div className="min-w-0">
@@ -150,16 +103,8 @@ export const AppShell: React.FC = () => {
                 {customer?.fullName || user?.username}
               </div>
               <div className="text-[11px] text-slate-500 truncate mt-0.5 flex items-center gap-1.5">
-                <span
-                  className={`px-1.5 py-0.5 rounded-md font-bold text-[9px] uppercase border ${
-                    isAdmin
-                      ? 'bg-rose-50 text-rose-700 border-rose-200'
-                      : isStaff
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                      : 'bg-sky-50 text-sky-700 border-sky-200'
-                  }`}
-                >
-                  {isAdmin ? 'ADMIN' : isStaff ? 'TELLER' : 'CUSTOMER'}
+                <span className="px-1.5 py-0.5 rounded-md font-bold text-[9px] uppercase bg-sky-50 text-sky-700 border border-sky-200">
+                  CUSTOMER
                 </span>
                 {customer?.customerNumber && (
                   <span className="font-mono text-[10px] text-slate-400">• {customer.customerNumber}</span>

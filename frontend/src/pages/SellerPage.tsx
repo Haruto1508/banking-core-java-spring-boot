@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   ArrowDownLeft,
@@ -35,7 +36,29 @@ const QUICK_AMOUNTS = [50_000, 100_000, 200_000, 500_000, 1_000_000, 2_000_000, 
 export const SellerPage: React.FC = () => {
   const { customer, user } = useAuth();
   const { t, i18n } = useTranslation();
-  const [activeTab, setActiveTab] = useState<'pos' | 'deposit' | 'withdraw' | 'transfer' | 'openAccount' | 'history'>('pos');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const validTabs = ['pos', 'deposit', 'withdraw', 'transfer', 'openAccount', 'history'] as const;
+  type TabType = typeof validTabs[number];
+
+  const tabParam = searchParams.get('tab') as TabType | null;
+  const initialTab: TabType = tabParam && validTabs.includes(tabParam) ? tabParam : 'pos';
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab);
+
+  useEffect(() => {
+    if (tabParam && validTabs.includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
+
+  const handleTabChange = (tabId: TabType) => {
+    setActiveTab(tabId);
+    if (tabId === 'pos') {
+      searchParams.delete('tab');
+      setSearchParams(searchParams);
+    } else {
+      setSearchParams({ tab: tabId });
+    }
+  };
 
   // Seller receiving accounts
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
@@ -548,7 +571,7 @@ export const SellerPage: React.FC = () => {
           <button
             key={id}
             type="button"
-            onClick={() => setActiveTab(id as any)}
+            onClick={() => handleTabChange(id as TabType)}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
               activeTab === id
                 ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'

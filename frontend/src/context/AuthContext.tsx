@@ -7,7 +7,7 @@ interface AuthContextValue {
   customer: Customer | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (usernameOrEmail: string, password: string) => Promise<void>;
+  login: (usernameOrEmail: string, password: string) => Promise<UserProfile>;
   register: (username: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshCustomer: () => Promise<void>;
@@ -70,6 +70,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const res = await authApi.login(usernameOrEmail, password);
     persistSession(res.data.data);
     await refreshCustomer();
+    return res.data.data.user;
   };
 
   const register = async (username: string, email: string, password: string) => {

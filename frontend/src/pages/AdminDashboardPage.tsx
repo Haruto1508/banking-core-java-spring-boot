@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Activity,
@@ -38,7 +39,35 @@ const SYSTEM_VAULTS = [
 export const AdminDashboardPage: React.FC = () => {
   const { user } = useAuth();
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<'overview' | 'allocate' | 'accounts' | 'reversal' | 'audit' | 'reconcile' | 'vaults'>('overview');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const validTabs = ['overview', 'allocate', 'accounts', 'reversal', 'audit', 'reconcile', 'vaults'] as const;
+  type TabType = typeof validTabs[number];
+
+  const tabParam = searchParams.get('tab') as TabType | null;
+  const initialTab: TabType = tabParam && validTabs.includes(tabParam) ? tabParam : 'overview';
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab);
+
+  useEffect(() => {
+    if (tabParam && validTabs.includes(tabParam)) {
+      setActiveTab(tabParam);
+      if (tabParam === 'audit') {
+        loadAuditLogs(auditStatusFilter);
+      }
+    }
+  }, [tabParam]);
+
+  const handleTabChange = (tabId: TabType) => {
+    setActiveTab(tabId);
+    if (tabId === 'overview') {
+      searchParams.delete('tab');
+      setSearchParams(searchParams);
+    } else {
+      setSearchParams({ tab: tabId });
+    }
+    if (tabId === 'audit') {
+      loadAuditLogs(auditStatusFilter);
+    }
+  };
 
   // Account Management state
   const [accountQuery, setAccountQuery] = useState('');
@@ -326,10 +355,7 @@ export const AdminDashboardPage: React.FC = () => {
           <button
             key={id}
             type="button"
-            onClick={() => {
-              setActiveTab(id as any);
-              if (id === 'audit') loadAuditLogs(auditStatusFilter);
-            }}
+            onClick={() => handleTabChange(id as TabType)}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
               activeTab === id
                 ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20'
