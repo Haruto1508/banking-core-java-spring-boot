@@ -49,4 +49,17 @@ public class AuditController {
                 resourceType, resourceId, pageable);
         return ApiResponse.success(logs);
     }
+
+    /**
+     * Queries all paginated audit logs across the bank. Restricted strictly to ADMIN role.
+     */
+    @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResponse<PageResponse<AuditLogResponse>> getAllAuditLogs(
+            @RequestParam(required = false) String status,
+            @PageableDefault(size = 20) Pageable pageable) {
+
+        PageResponse<AuditLogResponse> logs = auditService.getAllAuditLogs(status, pageable);
+        return ApiResponse.success(logs);
+    }
 }

@@ -121,3 +121,16 @@ export interface ReconciliationReport {
   balanced: boolean;
   checkedAt: string;
 }
+
+export interface AuditLogRecord {
+  id: string;
+  actorId: string;
+  actorRole: string;
+  action: string;
+  resourceType: string;
+  resourceId: string;
+  ipAddress?: string;
+  status: string;
+  metadata?: string;
+  createdAt: string;
+}

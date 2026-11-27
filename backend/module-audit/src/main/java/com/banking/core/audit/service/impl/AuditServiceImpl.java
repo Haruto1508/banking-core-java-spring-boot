@@ -45,6 +45,15 @@ public class AuditServiceImpl implements AuditService {
         return PageResponse.from(page);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<AuditLogResponse> getAllAuditLogs(String status, Pageable pageable) {
+        Page<AuditLog> page = (status != null && !status.isBlank())
+                ? auditLogRepository.findByStatusOrderByCreatedAtDesc(status.toUpperCase(), pageable)
+                : auditLogRepository.findAllByOrderByCreatedAtDesc(pageable);
+        return PageResponse.from(page.map(this::mapToResponse));
+    }
+
     private AuditLogResponse mapToResponse(AuditLog logEntity) {
         return new AuditLogResponse(
                 logEntity.getId(),

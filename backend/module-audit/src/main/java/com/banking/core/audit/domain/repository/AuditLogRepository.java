@@ -31,4 +31,14 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
      */
     Page<AuditLog> findByResourceTypeAndResourceIdOrderByCreatedAtDesc(
             String resourceType, String resourceId, Pageable pageable);
+
+    /**
+     * Queries all paginated audit logs ordered by creation timestamp descending.
+     */
+    Page<AuditLog> findAllByOrderByCreatedAtDesc(Pageable pageable);
+
+    /**
+     * Queries paginated audit logs filtered by status (e.g. SUCCESS, FAILED).
+     */
+    Page<AuditLog> findByStatusOrderByCreatedAtDesc(String status, Pageable pageable);
 }

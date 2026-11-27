@@ -27,4 +27,9 @@ public interface AuditService {
      * @return paginated audit logs
      */
     PageResponse<AuditLogResponse> getAuditLogsByResource(String resourceType, String resourceId, Pageable pageable);
+
+    /**
+     * Queries all paginated audit logs, optionally filtered by status (ADMIN only).
+     */
+    PageResponse<AuditLogResponse> getAllAuditLogs(String status, Pageable pageable);
 }

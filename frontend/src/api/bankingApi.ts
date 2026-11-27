@@ -9,6 +9,7 @@ import type {
   PaymentMethod,
   PaymentRecord,
   ReconciliationReport,
+  AuditLogRecord,
   TransactionRecord,
   TransactionStatus,
   TransactionType,
@@ -99,6 +100,16 @@ export const transactionApi = {
   ) =>
     apiClient.get<ApiResponse<PageResponse<TransactionRecord>>>(`/transactions/account/${accountId}`, {
       params,
+    }),
+
+  reverse: (transactionId: string, reason: string) =>
+    apiClient.post<ApiResponse<TransactionRecord>>(`/transactions/${transactionId}/reverse`, { reason }),
+};
+
+export const auditApi = {
+  getAllLogs: (page = 0, size = 20, status?: string) =>
+    apiClient.get<ApiResponse<PageResponse<AuditLogRecord>>>('/audit-logs', {
+      params: { page, size, status: status || undefined },
     }),
 };
 
