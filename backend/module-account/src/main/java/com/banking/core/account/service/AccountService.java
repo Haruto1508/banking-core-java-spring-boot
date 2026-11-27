@@ -86,6 +86,15 @@ public interface AccountService {
     AccountResponse unfreezeAccount(UUID accountId);
 
     /**
+     * Look up an active bank account by account number.
+     * Used for beneficiary resolution during transfers and payments.
+     *
+     * @param accountNumber account number (e.g. ACC-DEMO-001)
+     * @return account details DTO
+     */
+    AccountResponse lookupByAccountNumber(String accountNumber);
+
+    /**
      * Permanently closes an account.
      * <p>
      * - Account balance must be exactly 0.

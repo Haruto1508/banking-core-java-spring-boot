@@ -88,6 +88,17 @@ public class AccountController {
     }
 
     /**
+     * Resolves bank account details by human-readable account number.
+     * Used for beneficiary / recipient lookup during money transfers and QR checkout.
+     */
+    @GetMapping("/lookup/{accountNumber}")
+    @PreAuthorize("isAuthenticated()")
+    public ApiResponse<AccountResponse> lookupByAccountNumber(@PathVariable String accountNumber) {
+        AccountResponse response = accountService.lookupByAccountNumber(accountNumber);
+        return ApiResponse.success("Account found", response);
+    }
+
+    /**
      * Freezes an ACTIVE account. Only ADMIN and STAFF may freeze accounts.
      */
     @PatchMapping("/{accountId}/freeze")

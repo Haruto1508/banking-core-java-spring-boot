@@ -177,6 +177,15 @@ public class AccountServiceImpl implements AccountService {
      * Permanently closes an account; balance must be zero before closing.
      */
     @Override
+    @Transactional(readOnly = true)
+    public AccountResponse lookupByAccountNumber(String accountNumber) {
+        Account account = accountRepository.findByAccountNumber(accountNumber.trim())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCode.ACCOUNT_NOT_FOUND, "Account not found with number: " + accountNumber));
+        return mapToAccountResponse(account);
+    }
+
+    @Override
     @Transactional
     public AccountResponse closeAccount(UUID accountId) {
         Account account = findAccountOrThrow(accountId);
