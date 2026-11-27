@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  AlertTriangle,
   CheckCircle2,
   Layers,
   QrCode,
@@ -13,21 +14,42 @@ import { useAuth } from '../context/AuthContext';
 import { accountApi, paymentApi } from '../api/bankingApi';
 import { extractErrorMessage } from '../api/client';
 import type { BankAccount, PaymentMethod, PaymentRecord } from '../types/banking';
-import { formatCurrency, formatDateTime, generateIdempotencyKey } from '../utils/format';
+import {
+  formatCurrency,
+  formatDateTime,
+  formatNumberWithDots,
+  generateIdempotencyKey,
+  numberToWords,
+  parseNumberFromDots,
+} from '../utils/format';
+import { AlertModal } from '../components/AlertModal';
 
 export const PaymentsPage: React.FC = () => {
   const { customer } = useAuth();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [sourceAccountId, setSourceAccountId] = useState('');
   const [merchantAccountId, setMerchantAccountId] = useState('');
-  const [amount, setAmount] = useState('');
+  const [amountFormatted, setAmountFormatted] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('QR_CODE');
   const [description, setDescription] = useState('');
   const [history, setHistory] = useState<PaymentRecord[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Alert Modal state
+  const [alertModal, setAlertModal] = useState<{
+    isOpen: boolean;
+    title?: string;
+    message: string;
+    type?: 'error' | 'warning' | 'info' | 'success';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'error',
+  });
 
   const BILL_PRESETS = [
     { icon: Zap, labelKey: 'payments.electricity', descKey: 'payments.electricityDesc', color: 'from-amber-400 to-orange-500' },
@@ -67,17 +89,61 @@ export const PaymentsPage: React.FC = () => {
   }, [customer?.id]);
 
   const selectedSource = accounts.find((a) => a.id === sourceAccountId);
+  const numericAmount = parseNumberFromDots(amountFormatted);
+  const amountWords = numberToWords(numericAmount, i18n.language, selectedSource?.currency || 'VND');
+  const isExceedingBalance = selectedSource ? numericAmount > Number(selectedSource.balance) : false;
 
   const handlePay = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedSource) return;
-    setError(null); setSuccessMsg(null); setSubmitting(true);
+    if (!selectedSource) {
+      setAlertModal({
+        isOpen: true,
+        title: t('common.warningTitle'),
+        message: t('transfer.missingSourceAccount'),
+        type: 'warning',
+      });
+      return;
+    }
+
+    if (!merchantAccountId.trim()) {
+      setAlertModal({
+        isOpen: true,
+        title: t('common.warningTitle'),
+        message: t('payments.missingMerchant'),
+        type: 'warning',
+      });
+      return;
+    }
+
+    if (numericAmount <= 0) {
+      setAlertModal({
+        isOpen: true,
+        title: t('common.warningTitle'),
+        message: t('payments.missingAmount'),
+        type: 'warning',
+      });
+      return;
+    }
+
+    if (isExceedingBalance) {
+      setAlertModal({
+        isOpen: true,
+        title: t('common.warningTitle'),
+        message: t('payments.exceedBalance'),
+        type: 'warning',
+      });
+      return;
+    }
+
+    setError(null);
+    setSuccessMsg(null);
+    setSubmitting(true);
     try {
       const res = await paymentApi.create(
         {
           sourceAccountId,
           merchantAccountId: merchantAccountId.trim(),
-          amount: Number(amount),
+          amount: numericAmount,
           currency: selectedSource.currency,
           paymentMethod,
           description: description.trim() || t('payments.notePlaceholder'),
@@ -85,9 +151,21 @@ export const PaymentsPage: React.FC = () => {
         generateIdempotencyKey('PAY')
       );
       setSuccessMsg(`Thanh toán thành công! Ref: ${res.data.data.paymentRef}`);
-      setAmount(''); setDescription('');
+      setAmountFormatted('');
+      setDescription('');
       await loadHistory(sourceAccountId);
-    } catch (err) { setError(extractErrorMessage(err)); } finally { setSubmitting(false); }
+    } catch (err) {
+      const errMsg = extractErrorMessage(err);
+      setError(errMsg);
+      setAlertModal({
+        isOpen: true,
+        title: t('common.errorTitle'),
+        message: errMsg,
+        type: 'error',
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -202,19 +280,38 @@ export const PaymentsPage: React.FC = () => {
               </label>
               <div className="relative">
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   required
-                  min="1"
-                  step="any"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="250,000"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-sm font-bold text-slate-800 tabular-nums focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  value={amountFormatted}
+                  onChange={(e) => setAmountFormatted(formatNumberWithDots(e.target.value))}
+                  placeholder="250.000"
+                  className={`w-full px-3.5 py-2.5 rounded-xl bg-white border text-sm font-black tabular-nums focus:outline-none focus:ring-2 ${
+                    isExceedingBalance
+                      ? 'border-rose-300 focus:ring-rose-500 text-rose-700'
+                      : 'border-slate-200 focus:ring-sky-500 text-slate-800'
+                  }`}
                 />
                 <span className="absolute right-3.5 top-2.5 text-xs font-bold text-sky-600">
                   {selectedSource?.currency || 'VND'}
                 </span>
               </div>
+
+              {/* Amount in words preview */}
+              {amountWords && (
+                <div className="mt-2 px-3 py-2 rounded-xl bg-sky-50/80 border border-sky-200/70 text-xs font-bold text-sky-800 flex items-center gap-2 shadow-2xs">
+                  <span className="text-sky-500 font-normal">≈</span>
+                  <span className="leading-snug">{amountWords}</span>
+                </div>
+              )}
+
+              {/* Exceed Balance Warning */}
+              {isExceedingBalance && (
+                <div className="mt-1.5 text-xs text-rose-600 font-bold flex items-center gap-1.5">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                  <span>{t('payments.exceedBalance')}</span>
+                </div>
+              )}
             </div>
 
             <div>
@@ -281,6 +378,15 @@ export const PaymentsPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Alert Modal */}
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        onClose={() => setAlertModal((prev) => ({ ...prev, isOpen: false }))}
+        title={alertModal.title}
+        message={alertModal.message}
+        type={alertModal.type}
+      />
     </div>
   );
 };

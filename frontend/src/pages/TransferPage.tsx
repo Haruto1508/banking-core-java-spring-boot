@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  AlertTriangle,
   ArrowLeftRight,
   CheckCircle2,
   Clock,
@@ -15,8 +16,16 @@ import { useAuth } from '../context/AuthContext';
 import { accountApi, transactionApi } from '../api/bankingApi';
 import { extractErrorMessage } from '../api/client';
 import type { BankAccount, TransactionRecord } from '../types/banking';
-import { formatCurrency, formatDateTime, generateIdempotencyKey } from '../utils/format';
+import {
+  formatCurrency,
+  formatDateTime,
+  formatNumberWithDots,
+  generateIdempotencyKey,
+  numberToWords,
+  parseNumberFromDots,
+} from '../utils/format';
 import { VietQRModal } from '../components/VietQRModal';
+import { AlertModal } from '../components/AlertModal';
 
 const QUICK_AMOUNTS = [50_000, 100_000, 200_000, 500_000, 1_000_000, 2_000_000];
 
@@ -27,18 +36,30 @@ const FREQUENT_BENEFICIARIES = [
 
 export const TransferPage: React.FC = () => {
   const { customer, user } = useAuth();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [sourceAccountId, setSourceAccountId] = useState('');
   const [targetInput, setTargetInput] = useState('');
   const [resolvedAccount, setResolvedAccount] = useState<BankAccount | null>(null);
   const [resolving, setResolving] = useState(false);
-  const [amount, setAmount] = useState('');
+  const [amountFormatted, setAmountFormatted] = useState('');
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<TransactionRecord | null>(null);
   const [showQrModal, setShowQrModal] = useState(false);
+
+  // Alert Modal state
+  const [alertModal, setAlertModal] = useState<{
+    isOpen: boolean;
+    title?: string;
+    message: string;
+    type?: 'error' | 'warning' | 'info' | 'success';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'error',
+  });
 
   const loadAccounts = async () => {
     if (!customer?.id) return;
@@ -53,12 +74,14 @@ export const TransferPage: React.FC = () => {
   useEffect(() => { loadAccounts(); }, [customer?.id]);
 
   const selectedSource = accounts.find((a) => a.id === sourceAccountId);
+  const numericAmount = parseNumberFromDots(amountFormatted);
+  const amountWords = numberToWords(numericAmount, i18n.language, selectedSource?.currency || 'VND');
+  const isExceedingBalance = selectedSource ? numericAmount > Number(selectedSource.balance) : false;
 
   const handleLookup = async (inputVal: string) => {
     const trimmed = inputVal.trim();
     if (!trimmed) { setResolvedAccount(null); return; }
     setResolving(true);
-    setError(null);
     try {
       if (trimmed.startsWith('ACC-') || trimmed.startsWith('SYS-')) {
         const res = await accountApi.lookupByNumber(trimmed);
@@ -75,26 +98,83 @@ export const TransferPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedSource) return;
+
+    // 1. Kiểm tra tài khoản nguồn
+    if (!selectedSource) {
+      setAlertModal({
+        isOpen: true,
+        title: t('common.warningTitle'),
+        message: t('transfer.missingSourceAccount'),
+        type: 'warning',
+      });
+      return;
+    }
+
+    // 2. Kiểm tra thông tin người nhận
     const finalTargetId = resolvedAccount ? resolvedAccount.id : targetInput.trim();
-    if (!finalTargetId) { setError(t('transfer.targetPlaceholder')); return; }
-    setError(null);
+    if (!finalTargetId) {
+      setAlertModal({
+        isOpen: true,
+        title: t('common.warningTitle'),
+        message: t('transfer.missingTargetAccount'),
+        type: 'warning',
+      });
+      return;
+    }
+
+    // 3. Kiểm tra số tiền hợp lệ
+    if (numericAmount <= 0) {
+      setAlertModal({
+        isOpen: true,
+        title: t('common.warningTitle'),
+        message: t('transfer.missingAmount'),
+        type: 'warning',
+      });
+      return;
+    }
+
+    // 4. Kiểm tra số dư khả dụng
+    if (isExceedingBalance) {
+      setAlertModal({
+        isOpen: true,
+        title: t('common.warningTitle'),
+        message: t('transfer.exceedBalanceModal', {
+          amount: formatCurrency(numericAmount, selectedSource.currency),
+          balance: formatCurrency(Number(selectedSource.balance), selectedSource.currency),
+        }),
+        type: 'warning',
+      });
+      return;
+    }
+
     setSubmitting(true);
     try {
       const res = await transactionApi.transfer(
         {
           sourceAccountId,
           targetAccountId: finalTargetId,
-          amount: Number(amount),
+          amount: numericAmount,
           currency: selectedSource.currency,
           description: description.trim() || t('transfer.descriptionPlaceholder'),
         },
         generateIdempotencyKey('TRF')
       );
       setReceipt(res.data.data);
-      setAmount(''); setDescription(''); setTargetInput(''); setResolvedAccount(null);
+      setAmountFormatted('');
+      setDescription('');
+      setTargetInput('');
+      setResolvedAccount(null);
       await loadAccounts();
-    } catch (err) { setError(extractErrorMessage(err)); } finally { setSubmitting(false); }
+    } catch (err) {
+      setAlertModal({
+        isOpen: true,
+        title: t('common.errorTitle'),
+        message: extractErrorMessage(err),
+        type: 'error',
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (receipt) {
@@ -184,12 +264,6 @@ export const TransferPage: React.FC = () => {
             <h2 className="text-sm font-extrabold text-slate-900">{t('transfer.info')}</h2>
           </div>
 
-          {error && (
-            <div className="rounded-xl bg-rose-50 border border-rose-200 px-4 py-3 text-xs text-rose-700 font-medium">
-              {error}
-            </div>
-          )}
-
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Source Account */}
             <div>
@@ -262,39 +336,63 @@ export const TransferPage: React.FC = () => {
               )}
             </div>
 
-            {/* Amount */}
+            {/* Amount with Auto Thousand-dot Format & Amount in Words */}
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1.5">{t('transfer.amount')}</label>
               <div className="relative">
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   required
-                  min="1"
-                  step="any"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="500,000"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-sm text-slate-800 font-bold tabular-nums focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  value={amountFormatted}
+                  onChange={(e) => setAmountFormatted(formatNumberWithDots(e.target.value))}
+                  placeholder="500.000"
+                  className={`w-full px-3.5 py-2.5 rounded-xl bg-white border text-sm text-slate-800 font-black tabular-nums focus:outline-none focus:ring-2 ${
+                    isExceedingBalance
+                      ? 'border-rose-300 focus:ring-rose-500 text-rose-700'
+                      : 'border-slate-200 focus:ring-sky-500'
+                  }`}
                 />
                 <span className="absolute right-3.5 top-2.5 text-xs font-bold text-sky-600">
                   {selectedSource?.currency || 'VND'}
                 </span>
               </div>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {QUICK_AMOUNTS.map((val) => (
-                  <button
-                    key={val}
-                    type="button"
-                    onClick={() => setAmount(String(val))}
-                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors cursor-pointer tabular-nums ${
-                      amount === String(val)
-                        ? 'bg-sky-600 text-white shadow-xs'
-                        : 'bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-100'
-                    }`}
-                  >
-                    {formatCurrency(val, selectedSource?.currency || 'VND')}
-                  </button>
-                ))}
+
+              {/* Amount in Words preview */}
+              {amountWords && (
+                <div className="mt-2 px-3 py-2 rounded-xl bg-sky-50/80 border border-sky-200/70 text-xs font-bold text-sky-800 flex items-center gap-2 shadow-2xs">
+                  <span className="text-sky-500 font-normal">≈</span>
+                  <span className="leading-snug">{amountWords}</span>
+                </div>
+              )}
+
+              {/* Exceed Balance Warning */}
+              {isExceedingBalance && (
+                <div className="mt-1.5 text-xs text-rose-600 font-bold flex items-center gap-1.5">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                  <span>{t('transfer.exceedBalance')}</span>
+                </div>
+              )}
+
+              {/* Quick Amount Chips */}
+              <div className="flex flex-wrap gap-2 mt-2.5">
+                {QUICK_AMOUNTS.map((val) => {
+                  const formattedChip = formatNumberWithDots(val);
+                  return (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setAmountFormatted(formattedChip)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors cursor-pointer tabular-nums ${
+                        amountFormatted === formattedChip
+                          ? 'bg-sky-600 text-white shadow-xs'
+                          : 'bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-100'
+                      }`}
+                    >
+                      {formattedChip} {selectedSource?.currency || 'VND'}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -312,7 +410,7 @@ export const TransferPage: React.FC = () => {
 
             <button
               type="submit"
-              disabled={submitting || accounts.length === 0}
+              disabled={submitting}
               className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 disabled:opacity-50 text-white text-sm font-bold flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md shadow-sky-500/20"
             >
               <Send className="h-4 w-4" />
@@ -364,6 +462,7 @@ export const TransferPage: React.FC = () => {
         </div>
       </div>
 
+      {/* VietQR Modal */}
       {selectedSource && (
         <VietQRModal
           isOpen={showQrModal}
@@ -373,6 +472,15 @@ export const TransferPage: React.FC = () => {
           bankName="MBBank (MB)"
         />
       )}
+
+      {/* Alert / Error Modal */}
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        onClose={() => setAlertModal((prev) => ({ ...prev, isOpen: false }))}
+        title={alertModal.title}
+        message={alertModal.message}
+        type={alertModal.type}
+      />
     </div>
   );
 };

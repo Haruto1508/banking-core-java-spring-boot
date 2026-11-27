@@ -16,23 +16,45 @@ import { useAuth } from '../context/AuthContext';
 import { accountApi, reconciliationApi, transactionApi } from '../api/bankingApi';
 import { extractErrorMessage } from '../api/client';
 import type { BankAccount, ReconciliationReport } from '../types/banking';
-import { formatCurrency } from '../utils/format';
+import {
+  formatCurrency,
+  formatNumberWithDots,
+  numberToWords,
+  parseNumberFromDots,
+} from '../utils/format';
+import { AlertModal } from '../components/AlertModal';
 
 const QUICK_DEPOSIT_AMOUNTS = [500_000, 1_000_000, 2_000_000, 5_000_000, 10_000_000];
 
 export const AdminTellerPage: React.FC = () => {
   const { user } = useAuth();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [accountInput, setAccountInput] = useState('');
   const [resolvedAccount, setResolvedAccount] = useState<BankAccount | null>(null);
   const [resolving, setResolving] = useState(false);
-  const [amount, setAmount] = useState('');
+  const [amountFormatted, setAmountFormatted] = useState('');
   const [currency, setCurrency] = useState('VND');
   const [description, setDescription] = useState('');
   const [reconcileReport, setReconcileReport] = useState<ReconciliationReport | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Alert Modal state
+  const [alertModal, setAlertModal] = useState<{
+    isOpen: boolean;
+    title?: string;
+    message: string;
+    type?: 'error' | 'warning' | 'info' | 'success';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'error',
+  });
+
+  const numericAmount = parseNumberFromDots(amountFormatted);
+  const amountWords = numberToWords(numericAmount, i18n.language, currency);
 
   const handleResolveAccount = async (inputVal: string) => {
     const val = inputVal.trim();
@@ -62,7 +84,78 @@ export const AdminTellerPage: React.FC = () => {
         const refreshed = await accountApi.getById(resolvedAccount.id);
         setResolvedAccount(refreshed.data.data);
       }
-    } catch (err) { setError(extractErrorMessage(err)); } finally { setLoading(false); }
+    } catch (err) {
+      const errMsg = extractErrorMessage(err);
+      setError(errMsg);
+      setAlertModal({
+        isOpen: true,
+        title: t('common.errorTitle'),
+        message: errMsg,
+        type: 'error',
+      });
+    } finally { setLoading(false); }
+  };
+
+  const handleDeposit = () => {
+    if (!getTargetAccountId()) {
+      setAlertModal({
+        isOpen: true,
+        title: t('common.warningTitle'),
+        message: t('teller.missingAccount'),
+        type: 'warning',
+      });
+      return;
+    }
+    if (numericAmount <= 0) {
+      setAlertModal({
+        isOpen: true,
+        title: t('common.warningTitle'),
+        message: t('teller.missingAmount'),
+        type: 'warning',
+      });
+      return;
+    }
+    runAction(async () => {
+      const res = await transactionApi.deposit({
+        accountId: getTargetAccountId(),
+        amount: numericAmount,
+        currency,
+        description: description || 'Teller Deposit',
+      });
+      setMessage(t('teller.depositSuccess', { ref: res.data.data.transactionRef }));
+      setAmountFormatted('');
+    });
+  };
+
+  const handleWithdraw = () => {
+    if (!getTargetAccountId()) {
+      setAlertModal({
+        isOpen: true,
+        title: t('common.warningTitle'),
+        message: t('teller.missingAccount'),
+        type: 'warning',
+      });
+      return;
+    }
+    if (numericAmount <= 0) {
+      setAlertModal({
+        isOpen: true,
+        title: t('common.warningTitle'),
+        message: t('teller.missingAmount'),
+        type: 'warning',
+      });
+      return;
+    }
+    runAction(async () => {
+      const res = await transactionApi.withdraw({
+        accountId: getTargetAccountId(),
+        amount: numericAmount,
+        currency,
+        description: description || 'Teller Withdrawal',
+      });
+      setMessage(t('teller.withdrawSuccess', { ref: res.data.data.transactionRef }));
+      setAmountFormatted('');
+    });
   };
 
   return (
@@ -157,29 +250,40 @@ export const AdminTellerPage: React.FC = () => {
             <div className="sm:col-span-3">
               <label className="block text-xs font-bold text-slate-700 mb-1.5">{t('teller.cashAmount')}</label>
               <input
-                type="number"
-                min="1"
-                step="any"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="1,000,000"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-sm font-bold text-slate-800 tabular-nums focus:outline-none focus:ring-2 focus:ring-sky-500"
+                type="text"
+                inputMode="numeric"
+                value={amountFormatted}
+                onChange={(e) => setAmountFormatted(formatNumberWithDots(e.target.value))}
+                placeholder="1.000.000"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-sm font-black text-slate-800 tabular-nums focus:outline-none focus:ring-2 focus:ring-sky-500"
               />
+
+              {/* Amount in Words preview */}
+              {amountWords && (
+                <div className="mt-2 px-3 py-2 rounded-xl bg-sky-50/80 border border-sky-200/70 text-xs font-bold text-sky-800 flex items-center gap-2 shadow-2xs">
+                  <span className="text-sky-500 font-normal">≈</span>
+                  <span className="leading-snug">{amountWords}</span>
+                </div>
+              )}
+
               <div className="flex flex-wrap gap-1.5 mt-2">
-                {QUICK_DEPOSIT_AMOUNTS.map((val) => (
-                  <button
-                    key={val}
-                    type="button"
-                    onClick={() => setAmount(String(val))}
-                    className={`px-2 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition-colors tabular-nums ${
-                      amount === String(val)
-                        ? 'bg-sky-600 text-white shadow-xs'
-                        : 'bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-100'
-                    }`}
-                  >
-                    {(val / 1_000_000).toFixed(1)}M
-                  </button>
-                ))}
+                {QUICK_DEPOSIT_AMOUNTS.map((val) => {
+                  const formattedChip = formatNumberWithDots(val);
+                  return (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setAmountFormatted(formattedChip)}
+                      className={`px-2 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition-colors tabular-nums ${
+                        amountFormatted === formattedChip
+                          ? 'bg-sky-600 text-white shadow-xs'
+                          : 'bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-100'
+                      }`}
+                    >
+                      {(val / 1_000_000).toFixed(1)}M
+                    </button>
+                  );
+                })}
               </div>
             </div>
             <div>
@@ -210,17 +314,8 @@ export const AdminTellerPage: React.FC = () => {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             <button
               type="button"
-              disabled={loading || !getTargetAccountId() || !amount}
-              onClick={() => runAction(async () => {
-                const res = await transactionApi.deposit({
-                  accountId: getTargetAccountId(),
-                  amount: Number(amount),
-                  currency,
-                  description: description || 'Teller Deposit',
-                });
-                setMessage(t('teller.depositSuccess', { ref: res.data.data.transactionRef }));
-                setAmount('');
-              })}
+              disabled={loading}
+              onClick={handleDeposit}
               className="py-3 px-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 disabled:opacity-50 text-white text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/15"
             >
               <ArrowDownLeft className="h-3.5 w-3.5" />
@@ -229,17 +324,8 @@ export const AdminTellerPage: React.FC = () => {
 
             <button
               type="button"
-              disabled={loading || !getTargetAccountId() || !amount}
-              onClick={() => runAction(async () => {
-                const res = await transactionApi.withdraw({
-                  accountId: getTargetAccountId(),
-                  amount: Number(amount),
-                  currency,
-                  description: description || 'Teller Withdrawal',
-                });
-                setMessage(t('teller.withdrawSuccess', { ref: res.data.data.transactionRef }));
-                setAmount('');
-              })}
+              disabled={loading}
+              onClick={handleWithdraw}
               className="py-3 px-2 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 disabled:opacity-50 text-white text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/15"
             >
               <ArrowUpRight className="h-3.5 w-3.5" />
@@ -347,6 +433,15 @@ export const AdminTellerPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Alert Modal */}
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        onClose={() => setAlertModal((prev) => ({ ...prev, isOpen: false }))}
+        title={alertModal.title}
+        message={alertModal.message}
+        type={alertModal.type}
+      />
     </div>
   );
 };

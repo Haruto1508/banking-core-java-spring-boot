@@ -1,7 +1,12 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Check, Copy, Download, QrCode } from 'lucide-react';
-import { formatCurrency } from '../utils/format';
+import {
+  formatCurrency,
+  formatNumberWithDots,
+  numberToWords,
+  parseNumberFromDots,
+} from '../utils/format';
 
 interface VietQRModalProps {
   isOpen: boolean;
@@ -22,14 +27,17 @@ export const VietQRModal: React.FC<VietQRModalProps> = ({
   defaultAmount = 0,
   defaultDescription = '',
 }) => {
-  const { t } = useTranslation();
-  const [amount, setAmount] = useState<string>(defaultAmount > 0 ? String(defaultAmount) : '');
+  const { t, i18n } = useTranslation();
+  const [amountFormatted, setAmountFormatted] = useState<string>(
+    defaultAmount > 0 ? formatNumberWithDots(defaultAmount) : ''
+  );
   const [description, setDescription] = useState<string>(defaultDescription || 'SEPAY THANH TOAN');
   const [copied, setCopied] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  const numericAmount = Math.max(0, Number(amount) || 0);
+  const numericAmount = Math.max(0, parseNumberFromDots(amountFormatted));
+  const amountWords = numberToWords(numericAmount, i18n.language, 'VND');
   const qrUrl = `https://img.vietqr.io/image/MB-${accountNumber}-compact2.png?amount=${numericAmount}&addInfo=${encodeURIComponent(description)}&accountName=${encodeURIComponent(accountHolderName)}`;
 
   const copyToClipboard = (text: string, label: string) => {
@@ -84,12 +92,18 @@ export const VietQRModal: React.FC<VietQRModalProps> = ({
             <div>
               <label className="block font-bold text-slate-700 mb-1">{t('vietqr.amountOptional')}</label>
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
                 placeholder="0"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 text-xs tabular-nums text-slate-800"
+                value={amountFormatted}
+                onChange={(e) => setAmountFormatted(formatNumberWithDots(e.target.value))}
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 text-xs font-bold tabular-nums text-slate-800"
               />
+              {amountWords && (
+                <div className="mt-1.5 px-2.5 py-1 rounded-lg bg-sky-50 border border-sky-200/60 text-[10px] font-semibold text-sky-800 leading-tight">
+                  ≈ {amountWords}
+                </div>
+              )}
             </div>
             <div>
               <label className="block font-bold text-slate-700 mb-1">{t('vietqr.descOptional')}</label>

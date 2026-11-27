@@ -31,7 +31,13 @@
     "action": "Action",
     "vietqr": "VietQR Code",
     "live": "LIVE",
-    "manage": "Manage"
+    "manage": "Manage",
+    "close": "Close",
+    "understood": "Understood",
+    "errorTitle": "Error Notice",
+    "warningTitle": "Transaction Warning",
+    "infoTitle": "System Notice",
+    "successTitle": "Success"
   },
   "status": {
     "ACTIVE": "Active",
@@ -117,7 +123,13 @@
     "successBadge": "Napas 24/7 — Success",
     "txRef": "Transaction Ref",
     "txTime": "Booked Time",
-    "newTx": "Make Another Transfer"
+    "newTx": "Make Another Transfer",
+    "amountInWords": "Amount in words",
+    "exceedBalance": "Transfer amount exceeds available balance!",
+    "missingTargetAccount": "Please enter a valid recipient account number before proceeding.",
+    "missingAmount": "Please enter a valid transfer amount greater than 0.",
+    "missingSourceAccount": "Please select a debit account with available balance.",
+    "exceedBalanceModal": "The amount you wish to transfer ({{amount}}) exceeds your current available balance ({{balance}}). Please adjust the amount."
   },
   "accounts": {
     "title": "Accounts & Statements",
@@ -159,6 +171,10 @@
     "notePlaceholder": "Pay monthly electricity bill",
     "payNow": "Pay Now",
     "paying": "Processing...",
+    "amountInWords": "Amount in words",
+    "missingMerchant": "Please enter a merchant or contract ID.",
+    "missingAmount": "Please enter a valid payment amount greater than 0.",
+    "exceedBalance": "Payment amount exceeds available balance in the debit account.",
     "historyTitle": "Payment History",
     "historyDesc": "recent transactions",
     "noHistory": "No payment transactions recorded yet."
@@ -216,6 +232,9 @@
     "lookupLabel": "Account Number or UUID",
     "resolving": "Searching...",
     "cashAmount": "Cash Amount (Deposit / Withdrawal)",
+    "amountInWords": "Amount in words",
+    "missingAccount": "Please enter and select an account to proceed with the transaction.",
+    "missingAmount": "Please enter a valid transaction amount greater than 0.",
     "tellerNote": "Teller Note",
     "depositBtn": "Deposit Cash",
     "withdrawBtn": "Withdraw Cash",
