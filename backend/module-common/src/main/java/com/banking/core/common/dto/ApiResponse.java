@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 import java.time.Instant;
 
 /**
- * Standard API response wrapper for all REST endpoints.
+ * Standard API response wrapper for all REST endpoints with i18n support.
  *
  * @param <T> Payload data type
  */
@@ -22,6 +22,7 @@ import java.time.Instant;
 public class ApiResponse<T> {
 
     private boolean success;
+    private String messageKey;
     private String message;
     private T data;
     @Builder.Default
@@ -30,6 +31,7 @@ public class ApiResponse<T> {
     public static <T> ApiResponse<T> success(T data) {
         return ApiResponse.<T>builder()
                 .success(true)
+                .messageKey("api.success.operation_completed")
                 .message("Operation completed successfully")
                 .data(data)
                 .timestamp(Instant.now())
@@ -39,6 +41,17 @@ public class ApiResponse<T> {
     public static <T> ApiResponse<T> success(String message, T data) {
         return ApiResponse.<T>builder()
                 .success(true)
+                .messageKey("api.success.operation_completed")
+                .message(message)
+                .data(data)
+                .timestamp(Instant.now())
+                .build();
+    }
+
+    public static <T> ApiResponse<T> success(String messageKey, String message, T data) {
+        return ApiResponse.<T>builder()
+                .success(true)
+                .messageKey(messageKey)
                 .message(message)
                 .data(data)
                 .timestamp(Instant.now())

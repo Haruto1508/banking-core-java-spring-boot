@@ -1,5 +1,6 @@
 import React from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   ArrowLeftRight,
   Bell,
@@ -13,9 +14,11 @@ import {
   User,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { LanguageSwitcher } from './LanguageSwitcher';
 
 export const AppShell: React.FC = () => {
   const { user, customer, logout } = useAuth();
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   const isStaffOrAdmin = user?.role === 'ADMIN' || user?.role === 'STAFF';
@@ -26,34 +29,41 @@ export const AppShell: React.FC = () => {
   };
 
   const navItems = [
-    { to: '/', label: 'Tổng quan', icon: Home },
-    { to: '/transfer', label: 'Chuyển tiền', icon: ArrowLeftRight },
-    { to: '/sepay', label: 'Cổng SePay QR', icon: Radio },
-    { to: '/payments', label: 'Thanh toán hoá đơn', icon: QrCode },
-    { to: '/accounts', label: 'Tài khoản & Sao kê', icon: CreditCard },
-    { to: '/notifications', label: 'Thông báo', icon: Bell },
-    { to: '/profile', label: 'Hồ sơ khách hàng', icon: User },
+    { to: '/', label: t('nav.overview'), icon: Home },
+    { to: '/transfer', label: t('nav.transfer'), icon: ArrowLeftRight },
+    { to: '/sepay', label: t('nav.sepay'), icon: Radio },
+    { to: '/payments', label: t('nav.payments'), icon: QrCode },
+    { to: '/accounts', label: t('nav.accounts'), icon: CreditCard },
+    { to: '/notifications', label: t('nav.notifications'), icon: Bell },
+    { to: '/profile', label: t('nav.profile'), icon: User },
   ];
 
   if (isStaffOrAdmin) {
-    navItems.push({ to: '/admin', label: 'Quầy Teller', icon: ShieldCheck });
+    navItems.push({ to: '/admin', label: t('nav.teller'), icon: ShieldCheck });
   }
 
   return (
-    <div className="min-h-screen bg-[#080d14] flex flex-col md:flex-row font-sans">
-      {/* Desktop Sidebar - SePay Dark Modern Style */}
-      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 bg-slate-950 text-white border-r border-slate-900 shadow-xl z-20">
-        <div className="flex items-center gap-3 px-6 py-5 border-b border-slate-900">
-          <div className="h-10 w-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-bold shadow-md shadow-emerald-500/20">
-            <Landmark className="h-5 w-5" />
-          </div>
-          <div>
-            <div className="font-extrabold tracking-tight text-base text-white">NovaBank</div>
-            <div className="text-[11px] text-emerald-400 font-medium">Core SePay Engine</div>
+    <div className="min-h-screen bg-slate-50/80 flex flex-col md:flex-row font-sans text-slate-900">
+      {/* Desktop Sidebar - Clean Light Theme with Sky Blue Accents */}
+      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 bg-white border-r border-sky-100/90 shadow-xs z-20">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-sky-100/80">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-2xl bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center text-white font-bold shadow-md shadow-sky-500/20">
+              <Landmark className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="font-extrabold tracking-tight text-base text-slate-900">{t('common.appName')}</div>
+              <div className="text-[11px] text-sky-600 font-medium">{t('common.coreEngine')}</div>
+            </div>
           </div>
         </div>
 
-        <nav className="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto">
+        <div className="px-4 py-2 border-b border-sky-50 flex items-center justify-between">
+          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Ngôn ngữ / Lang</span>
+          <LanguageSwitcher />
+        </div>
+
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           {navItems.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
@@ -62,8 +72,8 @@ export const AppShell: React.FC = () => {
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition-all ${
                   isActive
-                    ? 'bg-emerald-500/15 text-emerald-400 shadow-xs'
-                    : 'text-slate-400 hover:bg-slate-900 hover:text-white'
+                    ? 'bg-sky-50 text-sky-700 font-bold border border-sky-200/80 shadow-xs'
+                    : 'text-slate-600 hover:bg-sky-50/60 hover:text-sky-800'
                 }`
               }
             >
@@ -74,52 +84,53 @@ export const AppShell: React.FC = () => {
         </nav>
 
         {/* User Card & Logout */}
-        <div className="p-4 border-t border-slate-900 bg-slate-950/50">
+        <div className="p-4 border-t border-sky-100/80 bg-sky-50/40">
           <div className="flex items-center justify-between gap-2 mb-3">
             <div className="min-w-0">
-              <div className="text-xs font-bold text-white truncate">
+              <div className="text-xs font-bold text-slate-800 truncate">
                 {customer?.fullName || user?.username}
               </div>
-              <div className="text-[11px] text-slate-400 truncate">
+              <div className="text-[11px] text-slate-500 truncate">
                 {user?.role} {customer?.customerNumber ? `• ${customer.customerNumber}` : ''}
               </div>
             </div>
           </div>
           <button
             onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors cursor-pointer border border-slate-800"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold bg-white hover:bg-rose-50 text-slate-600 hover:text-rose-600 transition-colors cursor-pointer border border-slate-200/80 hover:border-rose-200 shadow-xs"
           >
             <LogOut className="h-4 w-4" />
-            Đăng xuất
+            {t('nav.logout')}
           </button>
         </div>
       </aside>
 
       {/* Mobile Top Header */}
-      <header className="md:hidden sticky top-0 z-30 bg-slate-950 text-white border-b border-slate-900 px-4 py-3 flex items-center justify-between shadow-sm">
+      <header className="md:hidden sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-sky-100 px-4 py-3 flex items-center justify-between shadow-xs">
         <div className="flex items-center gap-2.5">
-          <div className="h-8 w-8 rounded-xl bg-emerald-500 flex items-center justify-center text-slate-950 font-bold">
+          <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center text-white font-bold shadow-xs">
             <Landmark className="h-4.5 w-4.5" />
           </div>
           <div>
-            <div className="font-bold text-sm leading-tight text-white">NovaBank</div>
-            <div className="text-[11px] text-emerald-400 leading-tight">
+            <div className="font-bold text-sm leading-tight text-slate-900">{t('common.appName')}</div>
+            <div className="text-[11px] text-sky-600 leading-tight">
               {customer?.fullName || user?.username}
             </div>
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <LanguageSwitcher />
           <NavLink
             to="/notifications"
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-900"
-            aria-label="Thông báo"
+            className="p-2 rounded-xl text-slate-500 hover:text-sky-600 hover:bg-sky-50 transition-colors"
+            aria-label={t('nav.notifications')}
           >
             <Bell className="h-5 w-5" />
           </NavLink>
           <button
             onClick={handleLogout}
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-900 cursor-pointer"
-            aria-label="Đăng xuất"
+            className="p-2 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-rose-50 cursor-pointer transition-colors"
+            aria-label={t('nav.logout')}
           >
             <LogOut className="h-5 w-5" />
           </button>
@@ -127,22 +138,22 @@ export const AppShell: React.FC = () => {
       </header>
 
       {/* Main Content Viewport */}
-      <main className="flex-1 md:pl-64 pb-24 md:pb-10 bg-[#080d14] min-h-screen">
+      <main className="flex-1 md:pl-64 pb-24 md:pb-10 bg-gradient-to-b from-[#f0f7ff]/50 via-slate-50/70 to-slate-50 min-h-screen">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
           <Outlet />
         </div>
       </main>
 
       {/* Mobile Bottom Navigation Bar */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-slate-950/95 backdrop-blur border-t border-slate-900 px-2 py-2 flex justify-around items-center text-slate-400 shadow-xl">
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur border-t border-sky-100 px-2 py-2 flex justify-around items-center text-slate-500 shadow-lg">
         {[
-          { to: '/', label: 'Trang chủ', icon: Home },
-          { to: '/transfer', label: 'Chuyển tiền', icon: ArrowLeftRight },
-          { to: '/sepay', label: 'SePay QR', icon: Radio },
-          { to: '/accounts', label: 'Tài khoản', icon: CreditCard },
+          { to: '/', label: t('nav.home'), icon: Home },
+          { to: '/transfer', label: t('nav.transfer'), icon: ArrowLeftRight },
+          { to: '/sepay', label: t('nav.sepay'), icon: Radio },
+          { to: '/accounts', label: t('nav.accounts'), icon: CreditCard },
           isStaffOrAdmin
-            ? { to: '/admin', label: 'Teller', icon: ShieldCheck }
-            : { to: '/profile', label: 'Hồ sơ', icon: User },
+            ? { to: '/admin', label: t('nav.teller'), icon: ShieldCheck }
+            : { to: '/profile', label: t('nav.profile'), icon: User },
         ].map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
@@ -150,7 +161,7 @@ export const AppShell: React.FC = () => {
             end={to === '/'}
             className={({ isActive }) =>
               `flex flex-col items-center justify-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-semibold transition-colors ${
-                isActive ? 'text-emerald-400' : 'text-slate-400 hover:text-slate-200'
+                isActive ? 'text-sky-600 font-bold' : 'text-slate-500 hover:text-slate-800'
               }`
             }
           >

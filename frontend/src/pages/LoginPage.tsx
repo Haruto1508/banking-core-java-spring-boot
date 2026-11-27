@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Landmark, Lock, User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { extractErrorMessage } from '../api/client';
+import { LanguageSwitcher } from '../components/LanguageSwitcher';
 
 export const LoginPage: React.FC = () => {
   const { login } = useAuth();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [usernameOrEmail, setUsernameOrEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -32,40 +35,45 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
-      {/* Background glowing effects */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div className="min-h-screen bg-gradient-to-b from-sky-50/80 via-slate-50 to-white flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden text-slate-900">
+      {/* Background Soft Glow */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 bg-sky-200/40 rounded-full blur-3xl pointer-events-none" />
+
+      {/* Language Switcher in Top Corner */}
+      <div className="absolute top-4 right-4 z-20">
+        <LanguageSwitcher />
+      </div>
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10 px-4">
         <div className="flex items-center justify-center gap-3 mb-4">
-          <div className="h-12 w-12 rounded-2xl bg-emerald-500 flex items-center justify-center text-slate-950 shadow-lg shadow-emerald-500/20">
+          <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-sky-500/20">
             <Landmark className="h-7 w-7" />
           </div>
           <div>
-            <div className="text-2xl font-extrabold text-white tracking-tight">NovaBank</div>
-            <div className="text-xs text-emerald-400 font-semibold">Tích hợp Cổng thanh toán SePay 24/7</div>
+            <div className="text-2xl font-black text-slate-900 tracking-tight">{t('common.appName')}</div>
+            <div className="text-xs text-sky-600 font-bold">{t('common.coreEngine')}</div>
           </div>
         </div>
-        <h2 className="text-center text-xl sm:text-2xl font-bold text-slate-100">
-          Đăng nhập tài khoản
+        <h2 className="text-center text-xl sm:text-2xl font-black text-slate-900">
+          {t('login.title')}
         </h2>
-        <p className="mt-1 text-center text-xs text-slate-400">
-          Hệ thống ngân hàng số an toàn chuẩn PCI-DSS & JWT Refresh Rotation
+        <p className="mt-1 text-center text-xs text-slate-500">
+          {t('login.sub')}
         </p>
       </div>
 
       <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-md relative z-10 px-4">
-        <div className="bg-slate-900 border border-slate-800 py-8 px-6 sm:px-8 shadow-2xl rounded-3xl text-slate-200">
+        <div className="bg-white border border-sky-100 py-8 px-6 sm:px-8 shadow-xl rounded-3xl card-glow">
           {error && (
-            <div className="mb-5 rounded-2xl bg-rose-950/60 border border-rose-800/80 px-4 py-3 text-xs text-rose-300">
+            <div className="mb-5 rounded-2xl bg-rose-50 border border-rose-200 px-4 py-3 text-xs text-rose-700 font-medium">
               {error}
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Tên đăng nhập hoặc Email
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                {t('login.username')}
               </label>
               <div className="relative">
                 <input
@@ -73,16 +81,16 @@ export const LoginPage: React.FC = () => {
                   required
                   value={usernameOrEmail}
                   onChange={(e) => setUsernameOrEmail(e.target.value)}
-                  placeholder="admin, teller, hoặc demo_user"
-                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  placeholder={t('login.usernamePlaceholder')}
+                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
                 />
                 <User className="h-4 w-4 text-slate-400 absolute left-3.5 top-3.5" />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Mật khẩu
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                {t('login.password')}
               </label>
               <div className="relative">
                 <input
@@ -91,7 +99,7 @@ export const LoginPage: React.FC = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
                 />
                 <Lock className="h-4 w-4 text-slate-400 absolute left-3.5 top-3.5" />
               </div>
@@ -100,49 +108,49 @@ export const LoginPage: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 text-sm font-bold transition-all cursor-pointer shadow-lg shadow-emerald-500/20 mt-2"
+              className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 disabled:opacity-50 text-white text-sm font-bold transition-all cursor-pointer shadow-md shadow-sky-500/20 mt-2"
             >
-              {loading ? 'Đang xác thực...' : 'Đăng nhập hệ thống'}
+              {loading ? t('login.loggingIn') : t('login.loginBtn')}
             </button>
           </form>
 
           {/* Quick Demo Fill Buttons */}
-          <div className="mt-6 pt-5 border-t border-slate-800">
-            <span className="block text-[11px] font-semibold text-slate-400 mb-2 uppercase tracking-wider text-center">
-              Chọn nhanh tài khoản thử nghiệm
+          <div className="mt-6 pt-5 border-t border-slate-100">
+            <span className="block text-[11px] font-bold text-slate-400 mb-2 uppercase tracking-wider text-center">
+              {t('login.quickTitle')}
             </span>
             <div className="grid grid-cols-3 gap-2 text-xs">
               <button
                 type="button"
                 onClick={() => fillDemo('demo_user', 'Password@123')}
-                className="py-2 px-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-center font-medium transition-colors cursor-pointer"
+                className="py-2 px-1 rounded-xl bg-sky-50 hover:bg-sky-100 border border-sky-100 text-sky-800 text-center font-bold transition-colors cursor-pointer"
               >
-                Khách hàng
+                {t('login.customer')}
               </button>
               <button
                 type="button"
                 onClick={() => fillDemo('teller', 'Password@123')}
-                className="py-2 px-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-center font-medium transition-colors cursor-pointer"
+                className="py-2 px-1 rounded-xl bg-sky-50 hover:bg-sky-100 border border-sky-100 text-sky-800 text-center font-bold transition-colors cursor-pointer"
               >
-                Giao dịch viên
+                {t('login.tellerRole')}
               </button>
               <button
                 type="button"
                 onClick={() => fillDemo('admin', 'Password@123')}
-                className="py-2 px-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-center font-medium transition-colors cursor-pointer"
+                className="py-2 px-1 rounded-xl bg-sky-50 hover:bg-sky-100 border border-sky-100 text-sky-800 text-center font-bold transition-colors cursor-pointer"
               >
-                Quản trị viên
+                {t('login.adminRole')}
               </button>
             </div>
-            <p className="text-[11px] text-slate-400 text-center mt-2 font-mono">
-              Mật khẩu mặc định: <span className="text-emerald-400 font-semibold">Password@123</span>
+            <p className="text-[11px] text-slate-400 text-center mt-2.5 font-mono">
+              {t('login.defaultPass')} <span className="text-sky-600 font-bold">Password@123</span>
             </p>
           </div>
 
-          <div className="mt-5 text-center text-xs text-slate-400">
-            Chưa có tài khoản?{' '}
-            <Link to="/register" className="font-semibold text-emerald-400 hover:text-emerald-300">
-              Đăng ký ngay
+          <div className="mt-5 text-center text-xs text-slate-500">
+            {t('login.noAccount')}{' '}
+            <Link to="/register" className="font-bold text-sky-600 hover:text-sky-700">
+              {t('login.registerNow')}
             </Link>
           </div>
         </div>

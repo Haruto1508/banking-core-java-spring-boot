@@ -21,6 +21,7 @@ import java.util.Map;
 public class ErrorResponse {
 
     private String errorCode;
+    private String messageKey;
     private String message;
     @Builder.Default
     private Instant timestamp = Instant.now();

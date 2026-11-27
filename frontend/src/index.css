@@ -3,31 +3,37 @@
 @layer base {
   body {
     font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #f8fafc;
+    color: #0f172a;
     @apply antialiased;
   }
 }
 
 .tabular-nums { font-variant-numeric: tabular-nums; }
 
-/* SePay card shimmer loading effect */
+/* Light Theme Card Shimmer Effect */
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
 .skeleton {
-  background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
   background-size: 200% 100%;
-  animation: shimmer 1.4s infinite;
+  animation: shimmer 1.5s infinite;
 }
 
-/* Neon glow on active card */
+/* Light Sky Blue Glow */
 .card-glow {
-  box-shadow: 0 0 0 1px rgba(52,211,153,0.2), 0 8px 32px rgba(52,211,153,0.07);
+  box-shadow: 0 0 0 1px rgba(14, 165, 233, 0.18), 0 10px 30px -4px rgba(14, 165, 233, 0.12);
 }
 
-/* Soft scroll on mobile */
-html { scroll-behavior: smooth; }
+.card-subtle {
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+}
 
 /* Hide scrollbar on horizontal scroll sections */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Soft scroll */
+html { scroll-behavior: smooth; }

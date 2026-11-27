@@ -10,11 +10,15 @@ export const apiClient = axios.create({
   timeout: 15000,
 });
 
-// Attach JWT Access Token to every outgoing request
+// Attach JWT Access Token and Language to every outgoing request
 apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = localStorage.getItem('accessToken');
   if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  const lang = localStorage.getItem('app_language') || 'vi';
+  if (config.headers) {
+    config.headers['Accept-Language'] = lang;
   }
   return config;
 });
