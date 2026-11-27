@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
@@ -34,10 +35,10 @@ public class NotificationServiceImpl implements NotificationService, Notificatio
 
     /**
      * Cross-module API: dispatches an email notification via the mock provider
-     * and persists the notification record.
+     * and persists the notification record in a fresh transaction (safe for AFTER_COMMIT listeners).
      */
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void sendEmailNotification(
             UUID recipientUserId,
             String recipientEmail,
