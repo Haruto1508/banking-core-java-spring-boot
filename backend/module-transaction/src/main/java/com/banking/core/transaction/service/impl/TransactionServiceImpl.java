@@ -11,6 +11,7 @@ import com.banking.core.common.exception.ResourceNotFoundException;
 import com.banking.core.customer.exposed.CustomerApi;
 import com.banking.core.customer.exposed.CustomerSummaryDto;
 import com.banking.core.ledger.exposed.LedgerApi;
+import com.banking.core.notification.exposed.TransactionEventPayload;
 import com.banking.core.transaction.api.dto.request.DepositRequest;
 import com.banking.core.transaction.api.dto.request.ReverseTransactionRequest;
 import com.banking.core.transaction.api.dto.request.TransferRequest;
@@ -28,6 +29,7 @@ import com.banking.core.transaction.service.TransactionService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
@@ -63,6 +65,7 @@ public class TransactionServiceImpl implements TransactionService, TransactionAp
     private final IdempotencyService idempotencyService;
     private final TransactionTemplate transactionTemplate;
     private final AuditApi auditApi;
+    private final ApplicationEventPublisher eventPublisher;
 
     // =========================================================================
     // TransactionService — called by TransactionController
@@ -109,6 +112,7 @@ public class TransactionServiceImpl implements TransactionService, TransactionAp
                 staffUserId != null ? staffUserId.toString() : "SYSTEM", "STAFF_OR_ADMIN",
                 "DEPOSIT", "TRANSACTION", savedTxn.getId().toString(), null, "SUCCESS",
                 "ref=" + savedTxn.getTransactionRef() + ", amount=" + normalizedAmount + " " + normalizedCurrency);
+        publishTransactionEvent(request.accountId(), savedTxn, "DEPOSIT_COMPLETED");
 
         return mapToResponse(savedTxn);
     }
@@ -154,6 +158,7 @@ public class TransactionServiceImpl implements TransactionService, TransactionAp
                 staffUserId != null ? staffUserId.toString() : "SYSTEM", "STAFF_OR_ADMIN",
                 "WITHDRAWAL", "TRANSACTION", savedTxn.getId().toString(), null, "SUCCESS",
                 "ref=" + savedTxn.getTransactionRef() + ", amount=" + normalizedAmount + " " + normalizedCurrency);
+        publishTransactionEvent(request.accountId(), savedTxn, "WITHDRAWAL_COMPLETED");
 
         return mapToResponse(savedTxn);
     }
@@ -450,8 +455,26 @@ public class TransactionServiceImpl implements TransactionService, TransactionAp
                 requesterRole != null ? requesterRole.name() : "SYSTEM",
                 "TRANSFER", "TRANSACTION", savedTxn.getId().toString(), null, "SUCCESS",
                 "ref=" + savedTxn.getTransactionRef() + ", amount=" + normalizedAmount + " " + normalizedCurrency);
+        publishTransactionEvent(sourceAccountId, savedTxn, "TRANSFER_DEBITED");
+        publishTransactionEvent(targetAccountId, savedTxn, "TRANSFER_CREDITED");
 
         return mapToResponse(savedTxn);
+    }
+
+    private void publishTransactionEvent(UUID accountId, Transaction txn, String eventType) {
+        accountApi.findAccountById(accountId)
+                .map(AccountSummaryDto::customerId)
+                .filter(customerId -> customerId != null)
+                .flatMap(customerApi::findCustomerById)
+                .ifPresent(customer -> eventPublisher.publishEvent(new TransactionEventPayload(
+                        txn.getId(),
+                        txn.getTransactionRef(),
+                        customer.userId(),
+                        customer.email(),
+                        eventType,
+                        txn.getAmount(),
+                        txn.getCurrency()
+                )));
     }
 
     private BigDecimal normalizeAndValidateAmount(BigDecimal amount) {
