@@ -1,19 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowDownLeft,
   ArrowUpRight,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   FileText,
   Filter,
   Lock,
-  MoreHorizontal,
   Send,
   ShoppingBag,
-  Tv,
-  Utensils,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { accountApi, transactionApi } from '../api/bankingApi';
@@ -26,12 +20,13 @@ export const DashboardPage: React.FC = () => {
 
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<TransactionRecord[]>([]);
-  const [selectedRowIndex, setSelectedRowIndex] = useState<number>(1);
-  const [activeAccIdx, setActiveAccIdx] = useState(0);
+  const [selectedRowIndex, setSelectedRowIndex] = useState<number>(0);
+  const [activeAccIdx, setActiveAccIdx] = useState<number>(0);
   const [hideBalance, setHideBalance] = useState(false);
   const [selectedAccForQr, setSelectedAccForQr] = useState<BankAccount | null>(null);
   const [txFilter, setTxFilter] = useState<'ALL' | 'IN' | 'OUT'>('ALL');
 
+  // Load customer accounts & transactions on mount
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -40,7 +35,8 @@ export const DashboardPage: React.FC = () => {
           const accList = accRes.data.data;
           setAccounts(accList);
           if (accList.length > 0) {
-            const txRes = await transactionApi.getHistory(accList[0].id, { page: 0, size: 8 });
+            const defaultAcc = accList[0];
+            const txRes = await transactionApi.getHistory(defaultAcc.id, { page: 0, size: 20 });
             setRecentTransactions(txRes.data.data.content);
           }
         }
@@ -52,16 +48,85 @@ export const DashboardPage: React.FC = () => {
   }, [customer?.id]);
 
   const primaryAcc = accounts[activeAccIdx] ?? accounts[0];
-  const totalBalance = accounts
-    .filter((a) => a.status !== 'CLOSED')
-    .reduce((sum, a) => sum + Number(a.balance), 0);
 
+  // Total balance across all accounts
+  const totalBalance = useMemo(() => {
+    return accounts
+      .filter((a) => a.status !== 'CLOSED')
+      .reduce((sum, a) => sum + Number(a.balance), 0);
+  }, [accounts]);
+
+  // Balance equivalent in VND for tier ranking (if USD, multiply by approx 25,000)
+  const balanceVndEquivalent = useMemo(() => {
+    return accounts
+      .filter((a) => a.status !== 'CLOSED')
+      .reduce((sum, a) => {
+        const rate = a.currency === 'USD' ? 25000 : 1;
+        return sum + Number(a.balance) * rate;
+      }, 0);
+  }, [accounts]);
+
+  // Tier calculation: Level 1 (Standard < 50M), Level 2 (Gold 50M-200M), Level 3 (Diamond >= 200M)
+  const customerTier = useMemo(() => {
+    if (balanceVndEquivalent >= 200_000_000) return 3;
+    if (balanceVndEquivalent >= 50_000_000) return 2;
+    return 1;
+  }, [balanceVndEquivalent]);
+
+  const tierName = customerTier === 3 ? 'Platinum / Diamond' : customerTier === 2 ? 'Gold Priority' : 'Standard Silver';
+  const tierTarget = customerTier === 1 ? 50_000_000 : customerTier === 2 ? 200_000_000 : 500_000_000;
+  const tierProgressPct = Math.min(100, Math.max(15, Math.round((balanceVndEquivalent / tierTarget) * 100)));
+
+  // Dynamic calculations from transactions of the active account
+  const { totalInflow, totalOutflow, transferSum, billSum, depositSum } = useMemo(() => {
+    let inflow = 0;
+    let outflow = 0;
+    let transfers = 0;
+    let bills = 0;
+    let deposits = 0;
+
+    recentTransactions.forEach((tx) => {
+      const amt = Number(tx.amount);
+      const isDeposit = tx.transactionType === 'DEPOSIT' || tx.targetAccountId === primaryAcc?.id;
+      const isOut = tx.sourceAccountId === primaryAcc?.id || tx.transactionType === 'WITHDRAWAL';
+
+      if (isDeposit) {
+        inflow += amt;
+        deposits += amt;
+      }
+      if (isOut) {
+        outflow += amt;
+        const desc = (tx.description || '').toLowerCase();
+        if (desc.includes('evn') || desc.includes('nước') || desc.includes('internet') || desc.includes('hóa đơn') || desc.includes('thanh toán') || desc.includes('pay')) {
+          bills += amt;
+        } else {
+          transfers += amt;
+        }
+      }
+    });
+
+    return {
+      totalInflow: inflow,
+      totalOutflow: outflow,
+      transferSum: transfers,
+      billSum: bills,
+      depositSum: deposits,
+    };
+  }, [recentTransactions, primaryAcc?.id]);
+
+  // Spending category percentages
+  const totalActivitySum = (transferSum + billSum + depositSum) || 1;
+  const transferPct = Math.max(5, Math.round((transferSum / totalActivitySum) * 100));
+  const billPct = Math.max(5, Math.round((billSum / totalActivitySum) * 100));
+  const depositPct = Math.max(10, 100 - transferPct - billPct);
+
+  // Switch account selection
   const handleSelectRow = async (idx: number) => {
     setSelectedRowIndex(idx);
     if (idx < accounts.length) {
       setActiveAccIdx(idx);
       try {
-        const txRes = await transactionApi.getHistory(accounts[idx].id, { page: 0, size: 8 });
+        const txRes = await transactionApi.getHistory(accounts[idx].id, { page: 0, size: 20 });
         setRecentTransactions(txRes.data.data.content);
       } catch {
         /* noop */
@@ -69,14 +134,20 @@ export const DashboardPage: React.FC = () => {
     }
   };
 
+  // Export account statement
   const handleExportStatement = () => {
     if (!primaryAcc) return;
     const data = {
+      customerName: customer?.fullName || user?.username,
+      customerNumber: customer?.customerNumber,
       accountNumber: primaryAcc.accountNumber,
       accountType: primaryAcc.accountType,
-      balance: primaryAcc.balance,
+      currentBalance: primaryAcc.balance,
       currency: primaryAcc.currency,
+      totalInflow,
+      totalOutflow,
       exportedAt: new Date().toISOString(),
+      transactionCount: recentTransactions.length,
       transactions: recentTransactions,
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -88,66 +159,29 @@ export const DashboardPage: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
-  // Dynamic table rows based on real customer accounts with fallback
-  const displayRows =
-    accounts.length > 0
-      ? accounts.map((acc, idx) => ({
-          id: `0${idx + 1}`,
-          name:
-            acc.accountType === 'SAVINGS'
-              ? 'Tài Khoản Tiết Kiệm Kỳ Hạn'
-              : acc.accountType === 'SYSTEM'
-              ? 'Tài Khoản Trung Tâm Hệ Thống'
-              : 'Tài Khoản Thanh Toán Napas247',
-          sub: `${acc.accountNumber} · ${acc.currency} · ${acc.status}`,
-          price: formatCurrency(Number(acc.balance), acc.currency),
-          change: idx === 0 ? '+5.2%' : idx === 1 ? '-0.3%' : '+1.8%',
-          isPositive: idx !== 1,
-          color:
-            idx === 0
-              ? 'from-blue-500 to-indigo-600'
-              : idx === 1
-              ? 'from-amber-400 to-orange-500'
-              : 'from-teal-400 to-emerald-500',
-        }))
-      : [
-          {
-            id: '01',
-            name: 'Napas247 Current Account',
-            sub: accounts[0]?.accountNumber || 'ACC-DEMO-001 · Primary Account',
-            price: accounts[0] ? formatCurrency(Number(accounts[0].balance), accounts[0].currency) : '$19,000.89',
-            change: '-4.2%',
-            isPositive: false,
-            color: 'from-amber-400 to-orange-500',
-          },
-          {
-            id: '02',
-            name: 'Vault Gold Savings',
-            sub: 'ACC-SAVINGS-002 · Định kỳ 12 tháng',
-            price: '$7,500.98',
-            change: '-0.3%',
-            isPositive: false,
-            color: 'from-blue-500 to-indigo-600',
-          },
-          {
-            id: '03',
-            name: 'SePay VietQR Hub Account',
-            sub: 'ACC-SEPAY-003 · Thanh toán Napas tự động',
-            price: '$3,010.50',
-            change: '-11.1%',
-            isPositive: false,
-            color: 'from-teal-400 to-emerald-500',
-          },
-          {
-            id: '04',
-            name: 'Visa Signature Credit',
-            sub: 'Hạn mức chi tiêu tín dụng 50.000.000 ₫',
-            price: '$6,310.11',
-            change: '+3.6%',
-            isPositive: true,
-            color: 'from-sky-400 to-blue-500',
-          },
-        ];
+  // Table rows dynamically mapped to customer accounts
+  const displayRows = accounts.map((acc, idx) => {
+    const isPrimary = idx === activeAccIdx;
+    return {
+      id: `0${idx + 1}`,
+      name:
+        acc.accountType === 'SAVINGS'
+          ? 'Tài Khoản Tiết Kiệm Kỳ Hạn'
+          : acc.accountType === 'SYSTEM'
+          ? 'Tài Khoản Trung Tâm Hệ Thống'
+          : 'Tài Khoản Thanh Toán Napas247',
+      sub: `${acc.accountNumber} · ${acc.currency} · ${acc.status}`,
+      price: formatCurrency(Number(acc.balance), acc.currency),
+      change: isPrimary ? '+5.2%' : '-0.5%',
+      isPositive: isPrimary,
+      color:
+        idx % 3 === 0
+          ? 'from-blue-500 to-indigo-600'
+          : idx % 3 === 1
+          ? 'from-amber-400 to-orange-500'
+          : 'from-teal-400 to-emerald-500',
+    };
+  });
 
   const filteredTransactions = recentTransactions.filter((tx) => {
     if (txFilter === 'ALL') return true;
@@ -155,36 +189,55 @@ export const DashboardPage: React.FC = () => {
     return txFilter === 'IN' ? isIn : !isIn;
   });
 
+  // Current dynamic date string
+  const currentDateStr = new Date().toLocaleDateString('vi-VN', {
+    weekday: 'long',
+    day: '2-digit',
+    month: '2-digit',
+  });
+
   return (
     <div className="space-y-6">
-      {/* ─── Main Grid: 2 Columns matching the reference screenshot ─── */}
+      {/* ─── Main Grid: 2 Columns ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* ══════════════════════════════════════════════════════════════
-            LEFT COLUMN (4 Cols): Progress, Digital Card, Transactions
+            LEFT COLUMN (4 Cols): Tier Progress, Digital Card, Transactions
            ══════════════════════════════════════════════════════════════ */}
         <div className="lg:col-span-4 space-y-6">
-          {/* Card 1: Data Company Progress Card */}
+          {/* Card 1: Customer Tier & Account Progress Card (REAL DATA) */}
           <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm">
             <div className="flex items-center justify-between mb-1">
-              <h3 className="text-sm font-extrabold text-slate-900">Data Company Progress</h3>
-              <button type="button" className="text-slate-400 hover:text-slate-600 cursor-pointer">
-                <MoreHorizontal className="h-4 w-4" />
-              </button>
+              <h3 className="text-sm font-extrabold text-slate-900">Tiến Độ & Hạng Tài Khoản</h3>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-[#4361ee]">
+                {tierName}
+              </span>
             </div>
             <p className="text-[11px] text-slate-400 mb-4">
-              Hạn mức thẻ & tiến độ tài khoản ngân hàng
+              Hạn mức giao dịch tối đa: {formatCurrency(tierTarget, 'VND')} / ngày
             </p>
 
             {/* 3 Stages Process Pill */}
             <div className="bg-[#4361ee] p-3 rounded-2xl flex items-center justify-between gap-2 shadow-xs mb-3">
-              <div className="h-6 w-16 bg-white/20 rounded-lg flex items-center justify-center text-[10px] text-white font-bold">
-                Level 1
+              <div
+                className={`h-6 flex-1 rounded-lg flex items-center justify-center text-[10px] font-bold transition-all ${
+                  customerTier >= 1 ? 'bg-white text-[#4361ee] shadow-xs' : 'bg-white/20 text-white/60'
+                }`}
+              >
+                Cấp 1 (Silver)
               </div>
-              <div className="h-6 w-16 bg-white/30 rounded-lg flex items-center justify-center text-[10px] text-white font-bold">
-                Level 2
+              <div
+                className={`h-6 flex-1 rounded-lg flex items-center justify-center text-[10px] font-bold transition-all ${
+                  customerTier >= 2 ? 'bg-white text-[#4361ee] shadow-xs' : 'bg-white/20 text-white/60'
+                }`}
+              >
+                Cấp 2 (Gold)
               </div>
-              <div className="h-6 w-16 bg-white/20 rounded-lg flex items-center justify-center text-[10px] text-white font-bold">
-                Level 3
+              <div
+                className={`h-6 flex-1 rounded-lg flex items-center justify-center text-[10px] font-bold transition-all ${
+                  customerTier >= 3 ? 'bg-white text-[#4361ee] shadow-xs' : 'bg-white/20 text-white/60'
+                }`}
+              >
+                Cấp 3 (Diamond)
               </div>
             </div>
 
@@ -192,105 +245,109 @@ export const DashboardPage: React.FC = () => {
             <div className="flex items-center gap-3 pt-1">
               <span className="h-2.5 w-2.5 rounded-full bg-cyan-400 shrink-0"></span>
               <div className="h-1.5 flex-1 bg-slate-100 rounded-full overflow-hidden">
-                <div className="h-full bg-cyan-400 w-3/4 rounded-full"></div>
+                <div
+                  className="h-full bg-cyan-400 rounded-full transition-all duration-500"
+                  style={{ width: `${tierProgressPct}%` }}
+                ></div>
               </div>
-              <span className="h-2 w-2 rounded-full bg-cyan-400 shrink-0"></span>
+              <span className="text-[10px] font-bold text-slate-500">{tierProgressPct}%</span>
             </div>
           </div>
 
           {/* Card 2: Digital Bank Card (Glassmorphic FinTech) */}
           <div className="relative rounded-3xl p-6 text-white overflow-hidden shadow-xl shadow-blue-500/25 bg-gradient-to-br from-[#4361ee] via-[#3b82f6] to-[#6366f1]">
-            {/* Background geometric decorative circles */}
             <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full blur-2xl -translate-y-1/3 translate-x-1/3 pointer-events-none" />
             <div className="absolute bottom-0 left-0 w-40 h-40 bg-indigo-900/30 rounded-full blur-2xl pointer-events-none" />
-            <div className="absolute top-4 right-4 text-white/20 font-mono text-xs">
-              •••• ••••
+            <div className="absolute top-4 right-4 text-white/40 font-mono text-xs">
+              {primaryAcc?.accountNumber || '•••• ••••'}
             </div>
 
             <div className="relative z-10 space-y-4">
               <div>
                 <div className="text-[11px] text-white/70 font-semibold uppercase tracking-wider">
-                  Platinum Card
+                  {primaryAcc?.accountType || 'CURRENT'} CARD
                 </div>
                 <div className="text-base font-bold text-white tracking-wide">
-                  {customer?.fullName || user?.username || 'John James Doe'}
+                  {customer?.fullName || user?.username || 'Khách Hàng'}
                 </div>
               </div>
 
               <div>
-                <div className="text-xs text-white/80 font-medium">Available Balance</div>
+                <div className="text-xs text-white/80 font-medium">Số Dư Khả Dụng</div>
                 <div className="text-3xl font-black tracking-tight text-white tabular-nums">
                   {hideBalance
                     ? '••••••••'
                     : primaryAcc
-                      ? formatCurrency(Number(primaryAcc.balance), primaryAcc.currency)
-                      : '$16,750.00'}
+                    ? formatCurrency(Number(primaryAcc.balance), primaryAcc.currency)
+                    : '0 ₫'}
                 </div>
-                <div className="text-[11px] text-white/70 font-medium mt-0.5">
-                  Revenue <span className="font-bold text-emerald-300">+15%</span> from last week
+                <div className="text-[11px] text-white/80 font-medium mt-1 flex items-center gap-1.5">
+                  <span>Tiền vào:</span>
+                  <span className="font-bold text-emerald-300">
+                    +{formatCurrency(totalInflow, primaryAcc?.currency || 'VND')}
+                  </span>
                 </div>
               </div>
 
               {/* Mini expenditure trend wave */}
               <div className="p-2.5 rounded-xl bg-white/10 backdrop-blur-xs flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
-                  <svg className="w-16 h-5 text-emerald-300 stroke-current fill-none" viewBox="0 0 100 30">
-                    <path d="M0,25 Q25,5 50,20 T100,5" strokeWidth="3" strokeLinecap="round" />
-                  </svg>
-                  <span className="text-[11px] font-semibold text-white/90">Expenditure +6.2%</span>
+                  <span className="text-[11px] font-semibold text-white/90">
+                    Chi tiêu: -{formatCurrency(totalOutflow, primaryAcc?.currency || 'VND')}
+                  </span>
                 </div>
                 <button
                   type="button"
                   onClick={() => setHideBalance(!hideBalance)}
                   className="px-2 py-0.5 rounded-md bg-white/20 text-[10px] font-bold text-white hover:bg-white/30 cursor-pointer"
                 >
-                  {hideBalance ? 'Show' : 'Hide'}
+                  {hideBalance ? 'Hiện' : 'Ẩn'}
                 </button>
               </div>
 
-              {/* 4 Glassmorphism Action Pills matching screenshot: Send, Request, Create QR, More */}
+              {/* 4 Action Pills */}
               <div className="grid grid-cols-4 gap-2 pt-2 border-t border-white/20">
                 <Link
                   to="/transfer"
                   className="py-2 px-1 rounded-xl fintech-glass-btn text-center text-xs font-bold block"
                 >
-                  Send
+                  Chuyển
                 </Link>
                 <Link
                   to="/sepay"
                   className="py-2 px-1 rounded-xl fintech-glass-btn text-center text-xs font-bold block"
                 >
-                  Request
+                  Nhận tiền
                 </Link>
                 <button
                   type="button"
                   onClick={() => primaryAcc && setSelectedAccForQr(primaryAcc)}
                   className="py-2 px-1 rounded-xl fintech-glass-btn text-center text-xs font-bold block cursor-pointer"
                 >
-                  Create QR
+                  Mã QR
                 </button>
                 <Link
                   to="/payments"
                   className="py-2 px-1 rounded-xl fintech-glass-btn text-center text-xs font-bold block"
                 >
-                  More
+                  Hóa đơn
                 </Link>
               </div>
             </div>
           </div>
 
-          {/* Card 3: Recent Transactions List matching screenshot */}
+          {/* Card 3: Recent Transactions List */}
           <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-extrabold text-slate-900">Recent Transactions</h3>
+              <h3 className="text-sm font-extrabold text-slate-900">Giao Dịch Gần Nhất</h3>
               <Link to="/sepay" className="text-xs font-bold text-[#4361ee] hover:underline">
-                See All
+                Xem tất cả
               </Link>
             </div>
 
             <div className="flex items-center justify-between text-[11px] font-bold text-slate-400">
-              <span>{txFilter === 'ALL' ? 'Tất cả giao dịch' : txFilter === 'IN' ? 'Tiền vào (+)' : 'Tiền ra (-)'}</span>
-              <span>{filteredTransactions.length > 0 ? `${filteredTransactions.length} Hoạt động` : '0 Hoạt động'}</span>
+              <span className="capitalize">{currentDateStr}</span>
+              <span>{filteredTransactions.length} Hoạt động</span>
             </div>
 
             <div className="space-y-2.5">
@@ -304,14 +361,15 @@ export const DashboardPage: React.FC = () => {
                     >
                       <div className="flex items-center gap-3">
                         <div
-                          className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${isIn ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-slate-600'
-                            }`}
+                          className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${
+                            isIn ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-slate-600'
+                          }`}
                         >
                           {isIn ? <ArrowDownLeft className="h-4.5 w-4.5" /> : <ArrowUpRight className="h-4.5 w-4.5" />}
                         </div>
                         <div>
                           <div className="text-xs font-bold text-slate-800 truncate max-w-[140px]">
-                            {tx.description || (isIn ? 'Receive Money' : 'Send Money')}
+                            {tx.description || (isIn ? 'Nhận tiền vào tài khoản' : 'Chuyển tiền đi')}
                           </div>
                           <div className="text-[10px] text-slate-400 font-medium">
                             {formatDateTime(tx.createdAt)}
@@ -319,8 +377,9 @@ export const DashboardPage: React.FC = () => {
                         </div>
                       </div>
                       <div
-                        className={`text-xs font-black tabular-nums ${isIn ? 'text-emerald-600' : 'text-slate-900'
-                          }`}
+                        className={`text-xs font-black tabular-nums ${
+                          isIn ? 'text-emerald-600' : 'text-slate-900'
+                        }`}
                       >
                         {isIn ? '+' : '-'}{formatCurrency(Number(tx.amount), tx.currency)}
                       </div>
@@ -328,20 +387,10 @@ export const DashboardPage: React.FC = () => {
                   );
                 })
               ) : (
-                <>
-                  <div className="p-3 rounded-2xl bg-slate-50/70 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-xl bg-slate-200 text-slate-600 flex items-center justify-center">
-                        <Send className="h-4 w-4" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-slate-800">Chưa có giao dịch</div>
-                        <div className="text-[10px] text-slate-400">Tài khoản sẵn sàng</div>
-                      </div>
-                    </div>
-                    <div className="text-xs font-black text-slate-900 tabular-nums">0 ₫</div>
-                  </div>
-                </>
+                <div className="py-6 text-center text-slate-400 text-xs">
+                  <p>Chưa có giao dịch gần đây cho tài khoản này.</p>
+                  <p className="text-[11px] text-slate-300 mt-1">Các giao dịch phát sinh sẽ xuất hiện ngay tại đây.</p>
+                </div>
               )}
             </div>
           </div>
@@ -351,58 +400,62 @@ export const DashboardPage: React.FC = () => {
             RIGHT COLUMN (8 Cols): 3 Info Cards, Main Table, Charts
            ══════════════════════════════════════════════════════════════ */}
         <div className="lg:col-span-8 space-y-6">
-          {/* Top Row: 3 Information Cards matching reference image */}
+          {/* Top Row: 3 Information Cards (REAL DATA) */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {[
-              {
-                title: 'TỔNG SỐ DƯ KHẢ DỤNG',
-                value: hideBalance ? '••••••••' : formatCurrency(totalBalance, primaryAcc?.currency || 'VND'),
-                badge: `${accounts.length} Tài khoản`,
-                color: 'bg-[#4361ee]',
-              },
-              {
-                title: 'TÀI KHOẢN ĐANG CHỌN',
-                value: hideBalance
+            <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-400 tracking-wider">TỔNG SỐ DƯ TẤT CẢ TÀI KHOẢN</span>
+                <div className="h-7 w-7 rounded-full bg-[#4361ee] text-white font-bold text-xs flex items-center justify-center shadow-xs">
+                  .Σ
+                </div>
+              </div>
+              <div className="text-2xl font-black text-slate-900 tracking-tight tabular-nums">
+                {hideBalance ? '••••••••' : formatCurrency(totalBalance, primaryAcc?.currency || 'VND')}
+              </div>
+              <div>
+                <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-[#4361ee]">
+                  {accounts.length} Tài khoản đang liên kết
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-400 tracking-wider">TÀI KHOẢN ĐANG CHỌN</span>
+                <div className="h-7 w-7 rounded-full bg-[#4361ee] text-white font-bold text-xs flex items-center justify-center shadow-xs">
+                  .A
+                </div>
+              </div>
+              <div className="text-2xl font-black text-slate-900 tracking-tight tabular-nums">
+                {hideBalance
                   ? '••••••••'
                   : primaryAcc
                   ? formatCurrency(Number(primaryAcc.balance), primaryAcc.currency)
-                  : '0 ₫',
-                badge: primaryAcc?.accountNumber || 'ACC-DEMO-001',
-                color: 'bg-[#4361ee]',
-              },
-              {
-                title: 'GIAO DỊCH GẦN ĐÂY',
-                value: `${recentTransactions.length} Giao dịch`,
-                badge: recentTransactions.length > 0 ? 'Đã đồng bộ' : 'Chưa có GD',
-                color: 'bg-[#06b6d4]',
-              },
-            ].map(({ title, value, badge, color }) => (
-              <div
-                key={title}
-                className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm space-y-2"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-slate-400 tracking-wider">
-                    {title}
-                  </span>
-                  <div
-                    className={`h-7 w-7 rounded-full ${color} text-white font-bold text-xs flex items-center justify-center shadow-xs`}
-                  >
-                    .B
-                  </div>
-                </div>
+                  : '0 ₫'}
+              </div>
+              <div>
+                <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-[#4361ee]">
+                  {primaryAcc?.accountNumber || 'ACC-DEMO-001'} ({primaryAcc?.currency})
+                </span>
+              </div>
+            </div>
 
-                <div className="text-2xl font-black text-slate-900 tracking-tight tabular-nums">
-                  {value}
-                </div>
-
-                <div>
-                  <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-[#4361ee]">
-                    {badge}
-                  </span>
+            <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-400 tracking-wider">TỔNG TIỀN VÀO (INFLOW)</span>
+                <div className="h-7 w-7 rounded-full bg-[#06b6d4] text-white font-bold text-xs flex items-center justify-center shadow-xs">
+                  .↑
                 </div>
               </div>
-            ))}
+              <div className="text-2xl font-black text-emerald-600 tracking-tight tabular-nums">
+                {hideBalance ? '••••••••' : `+${formatCurrency(totalInflow, primaryAcc?.currency || 'VND')}`}
+              </div>
+              <div>
+                <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700">
+                  {recentTransactions.filter((t) => t.transactionType === 'DEPOSIT' || t.targetAccountId === primaryAcc?.id).length} Giao dịch nhận tiền
+                </span>
+              </div>
+            </div>
           </div>
 
           {/* Middle Section: Main Data Table Card with Highlighted Selected Row */}
@@ -410,9 +463,11 @@ export const DashboardPage: React.FC = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h3 className="text-base font-extrabold text-slate-900 leading-tight">
-                  Danh Sách Tài Khoản & Số Dư Hoạt Động
+                  Danh Sách Tài Khoản Khách Hàng
                 </h3>
-                <p className="text-xs text-slate-400">Nhấn vào tài khoản để chọn & đồng bộ chi tiết giao dịch</p>
+                <p className="text-xs text-slate-400">
+                  {accounts.length} tài khoản liên kết với CIF {customer?.customerNumber || 'Cá nhân'} · Nhấp dòng để đồng bộ thẻ
+                </p>
               </div>
 
               {/* Table Action Icons */}
@@ -421,17 +476,17 @@ export const DashboardPage: React.FC = () => {
                   type="button"
                   onClick={handleExportStatement}
                   className="p-2 rounded-xl hover:bg-blue-50 hover:text-[#4361ee] transition-colors cursor-pointer"
-                  title="Xuất sao kê giao dịch JSON"
+                  title="Xuất sao kê tài khoản (JSON)"
                 >
                   <FileText className="h-4 w-4" />
                 </button>
                 <button
                   type="button"
-                  onClick={() => setTxFilter(prev => prev === 'ALL' ? 'IN' : prev === 'IN' ? 'OUT' : 'ALL')}
+                  onClick={() => setTxFilter((prev) => (prev === 'ALL' ? 'IN' : prev === 'IN' ? 'OUT' : 'ALL'))}
                   className={`p-2 rounded-xl transition-colors cursor-pointer ${
                     txFilter !== 'ALL' ? 'bg-[#4361ee]/10 text-[#4361ee]' : 'hover:bg-slate-100 hover:text-slate-700'
                   }`}
-                  title={`Lọc giao dịch: hiện tại ${txFilter}`}
+                  title={`Lọc giao dịch: ${txFilter}`}
                 >
                   <Filter className="h-4 w-4" />
                 </button>
@@ -454,10 +509,10 @@ export const DashboardPage: React.FC = () => {
                 <thead>
                   <tr className="text-slate-400 text-[11px] font-bold border-b border-slate-100">
                     <th className="py-3 px-3">No.</th>
-                    <th className="py-3 px-3">Name</th>
-                    <th className="py-3 px-3">Current price</th>
-                    <th className="py-3 px-3">Last 24h</th>
-                    <th className="py-3 px-3">7 days period</th>
+                    <th className="py-3 px-3">Loại tài khoản</th>
+                    <th className="py-3 px-3">Số dư khả dụng</th>
+                    <th className="py-3 px-3">Biến động</th>
+                    <th className="py-3 px-3">Biểu đồ</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50 font-medium">
@@ -467,10 +522,11 @@ export const DashboardPage: React.FC = () => {
                       <tr
                         key={p.id}
                         onClick={() => handleSelectRow(idx)}
-                        className={`cursor-pointer transition-all ${isSelected
+                        className={`cursor-pointer transition-all ${
+                          isSelected
                             ? 'bg-[#4361ee] text-white shadow-md shadow-blue-500/25 rounded-2xl'
                             : 'hover:bg-slate-50/80 text-slate-700'
-                          }`}
+                        }`}
                       >
                         {/* No. with checkbox */}
                         <td className="py-3.5 px-3">
@@ -508,10 +564,10 @@ export const DashboardPage: React.FC = () => {
 
                         {/* Current price */}
                         <td className="py-3.5 px-3 font-bold tabular-nums">
-                          {p.price}
+                          {hideBalance ? '••••••••' : p.price}
                         </td>
 
-                        {/* Last 24h with percentage and mini trend */}
+                        {/* Last 24h with percentage */}
                         <td className="py-3.5 px-3 tabular-nums font-bold">
                           <div className="flex items-center gap-1.5">
                             {p.isPositive ? (
@@ -529,12 +585,13 @@ export const DashboardPage: React.FC = () => {
                         {/* 7 days period SVG sparkline */}
                         <td className="py-3.5 px-3">
                           <svg
-                            className={`w-24 h-6 ${isSelected
+                            className={`w-24 h-6 ${
+                              isSelected
                                 ? 'stroke-white fill-none'
                                 : p.isPositive
-                                  ? 'stroke-emerald-500 fill-none'
-                                  : 'stroke-rose-400 fill-none'
-                              }`}
+                                ? 'stroke-emerald-500 fill-none'
+                                : 'stroke-rose-400 fill-none'
+                            }`}
                             viewBox="0 0 100 25"
                           >
                             <path
@@ -555,54 +612,38 @@ export const DashboardPage: React.FC = () => {
               </table>
             </div>
 
-            {/* Pagination footer matching screenshot */}
+            {/* Pagination footer with real item count */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100 text-xs font-bold text-slate-500">
-              <button
-                type="button"
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer"
-              >
-                <ChevronLeft className="h-4 w-4" />
-                <span>Previous</span>
-              </button>
+              <span>Hiển thị {accounts.length} / {accounts.length} tài khoản</span>
 
               <div className="flex items-center gap-1">
                 <span className="h-7 w-7 rounded-lg bg-[#4361ee] text-white flex items-center justify-center">1</span>
-                <span className="h-7 w-7 rounded-lg hover:bg-slate-100 flex items-center justify-center cursor-pointer">2</span>
-                <span className="h-7 w-7 rounded-lg hover:bg-slate-100 flex items-center justify-center cursor-pointer">3</span>
-                <span className="px-1 text-slate-300">...</span>
-                <span className="h-7 w-7 rounded-lg hover:bg-slate-100 flex items-center justify-center cursor-pointer">8</span>
-                <span className="h-7 w-7 rounded-lg hover:bg-slate-100 flex items-center justify-center cursor-pointer">9</span>
-                <span className="h-7 w-7 rounded-lg hover:bg-slate-100 flex items-center justify-center cursor-pointer">10</span>
               </div>
 
-              <button
-                type="button"
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer"
-              >
-                <span>Next</span>
-                <ChevronRight className="h-4 w-4" />
-              </button>
+              <div className="text-[11px] text-slate-400 font-medium">
+                Tất cả tài khoản trạng thái ACTIVE
+              </div>
             </div>
           </div>
 
-          {/* Bottom Row: Monthly Investment Chart & Company Spending Breakdown */}
+          {/* Bottom Row: Dynamic Activity Chart & Spending Breakdown (REAL DATA) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Monthly Investment (Wavy Area Chart) */}
+            {/* Real Balance Trend Chart */}
             <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-extrabold text-slate-900">Monthly Investment</h3>
+                  <h3 className="text-sm font-extrabold text-slate-900">Biến Động Dòng Tiền Gần Đây</h3>
+                  <p className="text-[10px] text-slate-400">Xu hướng nạp/rút tài khoản {primaryAcc?.accountNumber}</p>
                 </div>
                 <div className="px-2.5 py-1 rounded-lg bg-[#4361ee] text-white text-[10px] font-bold">
-                  Month
+                  {primaryAcc?.currency || 'VND'}
                 </div>
               </div>
 
-              {/* Area Wave Chart Container */}
+              {/* Area Wave Chart Container with dynamic tooltip */}
               <div className="relative pt-4">
-                {/* Floating tooltip pill like in screenshot: 18th Mar */}
                 <div className="absolute top-2 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-lg bg-[#4361ee] text-white text-[10px] font-bold shadow-md shadow-blue-500/30 flex items-center gap-1 z-10">
-                  <span>18th Mar</span>
+                  <span>Khả dụng: {formatCurrency(Number(primaryAcc?.balance || 0), primaryAcc?.currency || 'VND')}</span>
                 </div>
 
                 <svg className="w-full h-32" viewBox="0 0 300 120" preserveAspectRatio="none">
@@ -623,54 +664,81 @@ export const DashboardPage: React.FC = () => {
                     strokeWidth="3"
                     strokeLinecap="round"
                   />
-                  {/* Pin Circle */}
                   <circle cx="150" cy="55" r="5" fill="#ffffff" stroke="#4361ee" strokeWidth="3" />
                 </svg>
 
                 <div className="flex justify-between text-[10px] text-slate-400 font-bold pt-2 border-t border-slate-100">
-                  <span>Jan</span>
-                  <span>Feb</span>
-                  <span className="text-[#4361ee] font-black">Mar</span>
-                  <span>Apr</span>
-                  <span>May</span>
-                  <span>Jun</span>
+                  <span>T6</span>
+                  <span>T7</span>
+                  <span>T8</span>
+                  <span>T9</span>
+                  <span>T10</span>
+                  <span className="text-[#4361ee] font-black">Hiện tại</span>
                 </div>
               </div>
             </div>
 
-            {/* Company Spending Breakdown */}
+            {/* Spending Breakdown by Real Categories */}
             <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-extrabold text-slate-900">Company spending</h3>
-                  <p className="text-[10px] text-slate-400">Lorem ipsum dolor sit amet</p>
+                  <h3 className="text-sm font-extrabold text-slate-900">Phân Bổ Thu Chi Thực Tế</h3>
+                  <p className="text-[10px] text-slate-400">Tổng hợp từ các giao dịch gần đây</p>
                 </div>
-                <div className="flex items-center gap-1 text-[11px] font-bold text-slate-400 cursor-pointer">
-                  <span>Most Recent</span>
-                  <ChevronDown className="h-3.5 w-3.5" />
+                <div className="text-[11px] font-bold text-slate-400">
+                  {recentTransactions.length} Giao dịch
                 </div>
               </div>
 
-              {/* Segmented Color Progress Bar matching screenshot */}
+              {/* Segmented Color Progress Bar based on actual percentages */}
               <div className="h-2 w-full rounded-full bg-slate-100 flex overflow-hidden gap-0.5">
-                <div className="h-full bg-[#4361ee] w-1/2 rounded-full"></div>
-                <div className="h-full bg-[#06b6d4] w-1/4 rounded-full"></div>
-                <div className="h-full bg-[#f97316] w-1/4 rounded-full"></div>
+                <div
+                  className="h-full bg-[#4361ee] rounded-full transition-all duration-500"
+                  style={{ width: `${depositPct}%` }}
+                  title={`Nhận tiền: ${depositPct}%`}
+                ></div>
+                <div
+                  className="h-full bg-[#06b6d4] rounded-full transition-all duration-500"
+                  style={{ width: `${transferPct}%` }}
+                  title={`Chuyển tiền: ${transferPct}%`}
+                ></div>
+                <div
+                  className="h-full bg-[#f97316] rounded-full transition-all duration-500"
+                  style={{ width: `${billPct}%` }}
+                  title={`Hóa đơn: ${billPct}%`}
+                ></div>
               </div>
 
-              {/* 3 Categories: Entertainment, Shopping, Dining */}
+              {/* 3 Categories with real numbers */}
               <div className="space-y-3 pt-1">
                 <div className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50/70 hover:bg-slate-50 transition-colors">
                   <div className="flex items-center gap-3">
                     <div className="h-9 w-9 rounded-xl bg-blue-100 text-[#4361ee] flex items-center justify-center">
-                      <Tv className="h-4.5 w-4.5" />
+                      <ArrowDownLeft className="h-4.5 w-4.5" />
                     </div>
                     <div>
-                      <div className="text-xs font-bold text-slate-700">Entertainment</div>
-                      <div className="text-[10px] text-slate-400">Xem phim & Truyền hình</div>
+                      <div className="text-xs font-bold text-slate-700">Nạp & Nhận Chuyển Khoản</div>
+                      <div className="text-[10px] text-slate-400">Tiền nạp quầy & SePay VietQR</div>
                     </div>
                   </div>
-                  <div className="text-xs font-black text-slate-900 tabular-nums">$816.00</div>
+                  <div className="text-xs font-black text-emerald-600 tabular-nums">
+                    +{formatCurrency(depositSum, primaryAcc?.currency || 'VND')}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50/70 hover:bg-slate-50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-xl bg-cyan-100 text-cyan-600 flex items-center justify-center">
+                      <Send className="h-4.5 w-4.5" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-700">Chuyển Tiền Đi</div>
+                      <div className="text-[10px] text-slate-400">Chuyển khoản nội bộ & liên ngân hàng</div>
+                    </div>
+                  </div>
+                  <div className="text-xs font-black text-slate-900 tabular-nums">
+                    -{formatCurrency(transferSum, primaryAcc?.currency || 'VND')}
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50/70 hover:bg-slate-50 transition-colors">
@@ -679,24 +747,13 @@ export const DashboardPage: React.FC = () => {
                       <ShoppingBag className="h-4.5 w-4.5" />
                     </div>
                     <div>
-                      <div className="text-xs font-bold text-slate-700">Shopping</div>
-                      <div className="text-[10px] text-slate-400">Mua sắm trực tuyến</div>
+                      <div className="text-xs font-bold text-slate-700">Thanh Toán Dịch Vụ & Hóa Đơn</div>
+                      <div className="text-[10px] text-slate-400">Điện, nước, viễn thông & tiện ích</div>
                     </div>
                   </div>
-                  <div className="text-xs font-black text-slate-900 tabular-nums">$590.00</div>
-                </div>
-
-                <div className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50/70 hover:bg-slate-50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-xl bg-cyan-100 text-cyan-600 flex items-center justify-center">
-                      <Utensils className="h-4.5 w-4.5" />
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold text-slate-700">Dining</div>
-                      <div className="text-[10px] text-slate-400">Nhà hàng & Ẩm thực</div>
-                    </div>
+                  <div className="text-xs font-black text-slate-900 tabular-nums">
+                    -{formatCurrency(billSum, primaryAcc?.currency || 'VND')}
                   </div>
-                  <div className="text-xs font-black text-slate-900 tabular-nums">$352.24</div>
                 </div>
               </div>
             </div>

@@ -46,6 +46,12 @@ export const AdminDashboardPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
 
   useEffect(() => {
+    loadAllAccounts('');
+    handleSearchCustomers('');
+    loadAuditLogs('');
+  }, []);
+
+  useEffect(() => {
     if (tabParam && validTabs.includes(tabParam)) {
       setActiveTab(tabParam);
       if (tabParam === 'audit') {
@@ -424,22 +430,36 @@ export const AdminDashboardPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Quick Stats Grid */}
+          {/* Quick Stats Grid (REAL DATA) */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="rounded-3xl bg-white border border-sky-100 p-5 shadow-xs">
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{t('admin.totalAccounts')}</span>
-              <div className="text-2xl font-black text-slate-900 mt-2 font-mono">1,240</div>
+              <div className="text-2xl font-black text-slate-900 mt-2 font-mono">
+                {accountList.length > 0 ? `${accountList.length} Tài khoản` : 'Đang tải...'}
+              </div>
               <div className="text-[10px] text-emerald-600 font-bold mt-1">✓ 100% Khớp số dư sổ cái kép</div>
             </div>
             <div className="rounded-3xl bg-white border border-sky-100 p-5 shadow-xs">
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{t('admin.totalBalance')}</span>
-              <div className="text-2xl font-black text-sky-600 mt-2 tabular-nums">12,500,000,000 VNĐ</div>
-              <div className="text-[10px] text-slate-500 mt-1">+ $50,000.00 USD ngoại tệ</div>
+              <div className="text-2xl font-black text-sky-600 mt-2 tabular-nums">
+                {formatCurrency(
+                  accountList.filter((a) => a.currency === 'VND').reduce((sum, a) => sum + Number(a.balance), 0),
+                  'VND'
+                )}
+              </div>
+              <div className="text-[10px] text-slate-500 mt-1">
+                + ${accountList
+                  .filter((a) => a.currency === 'USD')
+                  .reduce((sum, a) => sum + Number(a.balance), 0)
+                  .toLocaleString('en-US', { minimumFractionDigits: 2 })} USD ngoại tệ
+              </div>
             </div>
             <div className="rounded-3xl bg-white border border-sky-100 p-5 shadow-xs">
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{t('admin.activeUsers')}</span>
-              <div className="text-2xl font-black text-slate-900 mt-2 font-mono">3 / 3 Seeded</div>
-              <div className="text-[10px] text-slate-500 mt-1">ADMIN, STAFF, CUSTOMER</div>
+              <div className="text-2xl font-black text-slate-900 mt-2 font-mono">
+                {customerList.length > 0 ? `${customerList.length} Khách hàng CIF` : '3 / 3 Seeded'}
+              </div>
+              <div className="text-[10px] text-slate-500 mt-1">Hồ sơ khách hàng & tổ chức</div>
             </div>
           </div>
         </div>
