@@ -18,21 +18,6 @@ import type { BankAccount, TransactionRecord } from '../types/banking';
 import { formatCurrency, formatDateTime } from '../utils/format';
 import { VietQRModal } from '../components/VietQRModal';
 
-interface SePayWebhookPayload {
-  id: number;
-  gateway: string;
-  transactionDate: string;
-  accountNumber: string;
-  subAccount?: string;
-  code?: string;
-  content: string;
-  transferType: 'in' | 'out';
-  transferAmount: number;
-  accumulated: number;
-  referenceCode: string;
-  referenceNumber: string;
-}
-
 export const WebhooksSePayPage: React.FC = () => {
   const { customer } = useAuth();
   const { t } = useTranslation();
@@ -87,21 +72,20 @@ export const WebhooksSePayPage: React.FC = () => {
 
     const amountNum = Number(simAmount);
     const mockRef = `SEPAY-${Date.now().toString().slice(-6)}`;
-    const mockPayload: SePayWebhookPayload = {
-      id: Math.floor(Math.random() * 1000000),
-      gateway: 'MBBank',
-      transactionDate: new Date().toISOString(),
-      accountNumber: selectedAcc.accountNumber,
-      content: simContent,
-      transferType: 'in',
-      transferAmount: amountNum,
-      accumulated: Number(selectedAcc.balance) + amountNum,
-      referenceCode: mockRef,
-      referenceNumber: `FT${Date.now().toString().slice(-8)}`,
-    };
 
     try {
-      setSimResult(`Đã gửi tín hiệu Webhook SePay: ${mockPayload.referenceCode} - Giao dịch nhận ${formatCurrency(amountNum, 'VND')}`);
+      const res = await transactionApi.simulateSepayWebhook({
+        accountId: selectedAcc.id,
+        amount: amountNum,
+        currency: selectedAcc.currency,
+        description: simContent.trim() || `SEPAY ${mockRef}`,
+      });
+      setSimResult(
+        `Xác nhận SePay Webhook thành công! Mã GD: ${res.data.data.transactionRef} · Đã cộng +${formatCurrency(
+          amountNum,
+          selectedAcc.currency
+        )} vào tài khoản ${selectedAcc.accountNumber}`
+      );
       await loadData();
     } catch (err) {
       setSimResult(`Lỗi: ${extractErrorMessage(err)}`);

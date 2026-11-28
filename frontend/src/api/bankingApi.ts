@@ -96,6 +96,9 @@ export const transactionApi = {
   deposit: (payload: { accountId: string; amount: number; currency: string; description?: string }) =>
     apiClient.post<ApiResponse<TransactionRecord>>('/transactions/deposit', payload),
 
+  simulateSepayWebhook: (payload: { accountId: string; amount: number; currency: string; description?: string }) =>
+    apiClient.post<ApiResponse<TransactionRecord>>('/transactions/sepay-simulate', payload),
+
   withdraw: (payload: { accountId: string; amount: number; currency: string; description?: string }) =>
     apiClient.post<ApiResponse<TransactionRecord>>('/transactions/withdraw', payload),
 

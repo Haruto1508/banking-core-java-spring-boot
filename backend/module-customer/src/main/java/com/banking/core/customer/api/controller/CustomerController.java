@@ -63,7 +63,7 @@ public class CustomerController {
      * Returns the customer profile linked to the currently authenticated user.
      */
     @GetMapping("/me")
-    @PreAuthorize("hasRole('CUSTOMER')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<CustomerResponse>> getMyProfile(
             @AuthenticationPrincipal BankingUserDetails currentUser) {
 

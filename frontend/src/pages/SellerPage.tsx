@@ -124,14 +124,27 @@ export const SellerPage: React.FC = () => {
   const transferAmountWords = numberToWords(transferNumericAmount, i18n.language, resolvedTransferSource?.currency || 'VND');
 
   const loadData = async () => {
-    if (!customer?.id) return;
     try {
-      const res = await accountApi.getByCustomer(customer.id);
-      const active = res.data.data.filter((a) => a.status === 'ACTIVE');
+      let active: BankAccount[] = [];
+      if (customer?.id) {
+        try {
+          const res = await accountApi.getByCustomer(customer.id);
+          active = res.data.data.filter((a) => a.status === 'ACTIVE');
+        } catch { /* noop */ }
+      }
+      if (active.length === 0) {
+        try {
+          const fallbackRes = await accountApi.lookupByNumber('ACC-TELLER-001');
+          if (fallbackRes.data.data) {
+            active = [fallbackRes.data.data];
+          }
+        } catch { /* noop */ }
+      }
       setAccounts(active);
-      if (active.length > 0 && !selectedAccountId) {
-        setSelectedAccountId(active[0].id);
-        await loadTransactions(active[0].id);
+      if (active.length > 0) {
+        const primaryId = active[0].id;
+        setSelectedAccountId((prev) => prev || primaryId);
+        await loadTransactions(primaryId);
       }
     } catch { /* noop */ }
   };
@@ -157,7 +170,7 @@ export const SellerPage: React.FC = () => {
   useEffect(() => {
     loadData();
     loadCustomers();
-  }, [customer?.id]);
+  }, [customer?.id, user?.id]);
 
   // Account lookups for direct counter actions
   const handleLookupAccount = async (val: string, setter: (acc: BankAccount | null) => void) => {

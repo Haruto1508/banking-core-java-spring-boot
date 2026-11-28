@@ -1,34 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
 import {
   ArrowDownLeft,
-  ArrowLeftRight,
   ArrowUpRight,
-  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Copy,
-  CreditCard,
-  Eye,
-  EyeOff,
   FileText,
   Filter,
   Lock,
   MoreHorizontal,
-  Plus,
-  QrCode,
-  Radio,
   Send,
   ShoppingBag,
-  Sparkles,
-  TrendingDown,
-  TrendingUp,
   Tv,
   Utensils,
-  Wallet,
-  Zap,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { accountApi, transactionApi } from '../api/bankingApi';
@@ -38,20 +23,17 @@ import { VietQRModal } from '../components/VietQRModal';
 
 export const DashboardPage: React.FC = () => {
   const { user, customer } = useAuth();
-  const { t } = useTranslation();
 
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<TransactionRecord[]>([]);
   const [selectedRowIndex, setSelectedRowIndex] = useState<number>(1);
   const [activeAccIdx, setActiveAccIdx] = useState(0);
   const [hideBalance, setHideBalance] = useState(false);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
   const [selectedAccForQr, setSelectedAccForQr] = useState<BankAccount | null>(null);
+  const [txFilter, setTxFilter] = useState<'ALL' | 'IN' | 'OUT'>('ALL');
 
   useEffect(() => {
     const loadData = async () => {
-      setLoading(true);
       try {
         if (customer?.id) {
           const accRes = await accountApi.getByCustomer(customer.id);
@@ -64,8 +46,6 @@ export const DashboardPage: React.FC = () => {
         }
       } catch {
         /* noop */
-      } finally {
-        setLoading(false);
       }
     };
     loadData();
@@ -76,51 +56,104 @@ export const DashboardPage: React.FC = () => {
     .filter((a) => a.status !== 'CLOSED')
     .reduce((sum, a) => sum + Number(a.balance), 0);
 
-  const copyText = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedId(text);
-    setTimeout(() => setCopiedId(null), 1500);
+  const handleSelectRow = async (idx: number) => {
+    setSelectedRowIndex(idx);
+    if (idx < accounts.length) {
+      setActiveAccIdx(idx);
+      try {
+        const txRes = await transactionApi.getHistory(accounts[idx].id, { page: 0, size: 8 });
+        setRecentTransactions(txRes.data.data.content);
+      } catch {
+        /* noop */
+      }
+    }
   };
 
-  // Mock table products aligned with the screenshot
-  const tableProducts = [
-    {
-      id: '01',
-      name: 'Napas247 Current Account',
-      sub: accounts[0]?.accountNumber || 'ACC-DEMO-001 · Primary Account',
-      price: accounts[0] ? formatCurrency(Number(accounts[0].balance), accounts[0].currency) : '$19,000.89',
-      change: '-4.2%',
-      isPositive: false,
-      color: 'from-amber-400 to-orange-500',
-    },
-    {
-      id: '02',
-      name: 'Vault Gold Savings',
-      sub: 'ACC-SAVINGS-002 · Định kỳ 12 tháng',
-      price: '$7,500.98',
-      change: '-0.3%',
-      isPositive: false,
-      color: 'from-blue-500 to-indigo-600',
-    },
-    {
-      id: '03',
-      name: 'SePay VietQR Hub Account',
-      sub: 'ACC-SEPAY-003 · Thanh toán Napas tự động',
-      price: '$3,010.50',
-      change: '-11.1%',
-      isPositive: false,
-      color: 'from-teal-400 to-emerald-500',
-    },
-    {
-      id: '04',
-      name: 'Visa Signature Credit',
-      sub: 'Hạn mức chi tiêu tín dụng 50.000.000 ₫',
-      price: '$6,310.11',
-      change: '+3.6%',
-      isPositive: true,
-      color: 'from-sky-400 to-blue-500',
-    },
-  ];
+  const handleExportStatement = () => {
+    if (!primaryAcc) return;
+    const data = {
+      accountNumber: primaryAcc.accountNumber,
+      accountType: primaryAcc.accountType,
+      balance: primaryAcc.balance,
+      currency: primaryAcc.currency,
+      exportedAt: new Date().toISOString(),
+      transactions: recentTransactions,
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `SaoKe_${primaryAcc.accountNumber}_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Dynamic table rows based on real customer accounts with fallback
+  const displayRows =
+    accounts.length > 0
+      ? accounts.map((acc, idx) => ({
+          id: `0${idx + 1}`,
+          name:
+            acc.accountType === 'SAVINGS'
+              ? 'Tài Khoản Tiết Kiệm Kỳ Hạn'
+              : acc.accountType === 'SYSTEM'
+              ? 'Tài Khoản Trung Tâm Hệ Thống'
+              : 'Tài Khoản Thanh Toán Napas247',
+          sub: `${acc.accountNumber} · ${acc.currency} · ${acc.status}`,
+          price: formatCurrency(Number(acc.balance), acc.currency),
+          change: idx === 0 ? '+5.2%' : idx === 1 ? '-0.3%' : '+1.8%',
+          isPositive: idx !== 1,
+          color:
+            idx === 0
+              ? 'from-blue-500 to-indigo-600'
+              : idx === 1
+              ? 'from-amber-400 to-orange-500'
+              : 'from-teal-400 to-emerald-500',
+        }))
+      : [
+          {
+            id: '01',
+            name: 'Napas247 Current Account',
+            sub: accounts[0]?.accountNumber || 'ACC-DEMO-001 · Primary Account',
+            price: accounts[0] ? formatCurrency(Number(accounts[0].balance), accounts[0].currency) : '$19,000.89',
+            change: '-4.2%',
+            isPositive: false,
+            color: 'from-amber-400 to-orange-500',
+          },
+          {
+            id: '02',
+            name: 'Vault Gold Savings',
+            sub: 'ACC-SAVINGS-002 · Định kỳ 12 tháng',
+            price: '$7,500.98',
+            change: '-0.3%',
+            isPositive: false,
+            color: 'from-blue-500 to-indigo-600',
+          },
+          {
+            id: '03',
+            name: 'SePay VietQR Hub Account',
+            sub: 'ACC-SEPAY-003 · Thanh toán Napas tự động',
+            price: '$3,010.50',
+            change: '-11.1%',
+            isPositive: false,
+            color: 'from-teal-400 to-emerald-500',
+          },
+          {
+            id: '04',
+            name: 'Visa Signature Credit',
+            sub: 'Hạn mức chi tiêu tín dụng 50.000.000 ₫',
+            price: '$6,310.11',
+            change: '+3.6%',
+            isPositive: true,
+            color: 'from-sky-400 to-blue-500',
+          },
+        ];
+
+  const filteredTransactions = recentTransactions.filter((tx) => {
+    if (txFilter === 'ALL') return true;
+    const isIn = tx.transactionType === 'DEPOSIT' || tx.targetAccountId === primaryAcc?.id;
+    return txFilter === 'IN' ? isIn : !isIn;
+  });
 
   return (
     <div className="space-y-6">
@@ -256,13 +289,13 @@ export const DashboardPage: React.FC = () => {
             </div>
 
             <div className="flex items-center justify-between text-[11px] font-bold text-slate-400">
-              <span>Monday</span>
-              <span>{recentTransactions.length > 0 ? `${recentTransactions.length} Activity` : '4 Activity'}</span>
+              <span>{txFilter === 'ALL' ? 'Tất cả giao dịch' : txFilter === 'IN' ? 'Tiền vào (+)' : 'Tiền ra (-)'}</span>
+              <span>{filteredTransactions.length > 0 ? `${filteredTransactions.length} Hoạt động` : '0 Hoạt động'}</span>
             </div>
 
             <div className="space-y-2.5">
-              {recentTransactions.length > 0 ? (
-                recentTransactions.slice(0, 4).map((tx) => {
+              {filteredTransactions.length > 0 ? (
+                filteredTransactions.slice(0, 4).map((tx) => {
                   const isIn = tx.transactionType === 'DEPOSIT' || tx.targetAccountId === primaryAcc?.id;
                   return (
                     <div
@@ -289,7 +322,7 @@ export const DashboardPage: React.FC = () => {
                         className={`text-xs font-black tabular-nums ${isIn ? 'text-emerald-600' : 'text-slate-900'
                           }`}
                       >
-                        {isIn ? '+' : '-'}${Number(tx.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                        {isIn ? '+' : '-'}{formatCurrency(Number(tx.amount), tx.currency)}
                       </div>
                     </div>
                   );
@@ -302,24 +335,11 @@ export const DashboardPage: React.FC = () => {
                         <Send className="h-4 w-4" />
                       </div>
                       <div>
-                        <div className="text-xs font-bold text-slate-800">Send Money</div>
-                        <div className="text-[10px] text-slate-400">Daniel Harrison</div>
+                        <div className="text-xs font-bold text-slate-800">Chưa có giao dịch</div>
+                        <div className="text-[10px] text-slate-400">Tài khoản sẵn sàng</div>
                       </div>
                     </div>
-                    <div className="text-xs font-black text-slate-900 tabular-nums">-$300.00</div>
-                  </div>
-
-                  <div className="p-3 rounded-2xl bg-slate-50/70 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
-                        <ArrowDownLeft className="h-4 w-4" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-slate-800">Receive Money</div>
-                        <div className="text-[10px] text-slate-400">Isabella Anderson</div>
-                      </div>
-                    </div>
-                    <div className="text-xs font-black text-emerald-600 tabular-nums">+$500.00</div>
+                    <div className="text-xs font-black text-slate-900 tabular-nums">0 ₫</div>
                   </div>
                 </>
               )}
@@ -335,21 +355,25 @@ export const DashboardPage: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
               {
-                title: 'INFORMATION A',
-                value: '$1,234.00',
-                badge: '350 Document',
+                title: 'TỔNG SỐ DƯ KHẢ DỤNG',
+                value: hideBalance ? '••••••••' : formatCurrency(totalBalance, primaryAcc?.currency || 'VND'),
+                badge: `${accounts.length} Tài khoản`,
                 color: 'bg-[#4361ee]',
               },
               {
-                title: 'INFORMATION B',
-                value: '$2,345.00',
-                badge: '350 Document',
+                title: 'TÀI KHOẢN ĐANG CHỌN',
+                value: hideBalance
+                  ? '••••••••'
+                  : primaryAcc
+                  ? formatCurrency(Number(primaryAcc.balance), primaryAcc.currency)
+                  : '0 ₫',
+                badge: primaryAcc?.accountNumber || 'ACC-DEMO-001',
                 color: 'bg-[#4361ee]',
               },
               {
-                title: 'INFORMATION C',
-                value: '$3,456.00',
-                badge: '350 Document',
+                title: 'GIAO DỊCH GẦN ĐÂY',
+                value: `${recentTransactions.length} Giao dịch`,
+                badge: recentTransactions.length > 0 ? 'Đã đồng bộ' : 'Chưa có GD',
                 color: 'bg-[#06b6d4]',
               },
             ].map(({ title, value, badge, color }) => (
@@ -386,31 +410,38 @@ export const DashboardPage: React.FC = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h3 className="text-base font-extrabold text-slate-900 leading-tight">
-                  Data Company Progress
+                  Danh Sách Tài Khoản & Số Dư Hoạt Động
                 </h3>
-                <p className="text-xs text-slate-400">Lorem ipsum dolor sit amet</p>
+                <p className="text-xs text-slate-400">Nhấn vào tài khoản để chọn & đồng bộ chi tiết giao dịch</p>
               </div>
 
               {/* Table Action Icons */}
               <div className="flex items-center gap-2 text-slate-400">
                 <button
                   type="button"
-                  className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
-                  title="Document"
+                  onClick={handleExportStatement}
+                  className="p-2 rounded-xl hover:bg-blue-50 hover:text-[#4361ee] transition-colors cursor-pointer"
+                  title="Xuất sao kê giao dịch JSON"
                 >
                   <FileText className="h-4 w-4" />
                 </button>
                 <button
                   type="button"
-                  className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
-                  title="Filter"
+                  onClick={() => setTxFilter(prev => prev === 'ALL' ? 'IN' : prev === 'IN' ? 'OUT' : 'ALL')}
+                  className={`p-2 rounded-xl transition-colors cursor-pointer ${
+                    txFilter !== 'ALL' ? 'bg-[#4361ee]/10 text-[#4361ee]' : 'hover:bg-slate-100 hover:text-slate-700'
+                  }`}
+                  title={`Lọc giao dịch: hiện tại ${txFilter}`}
                 >
                   <Filter className="h-4 w-4" />
                 </button>
                 <button
                   type="button"
-                  className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
-                  title="Lock"
+                  onClick={() => setHideBalance(!hideBalance)}
+                  className={`p-2 rounded-xl transition-colors cursor-pointer ${
+                    hideBalance ? 'bg-amber-50 text-amber-600' : 'hover:bg-slate-100 hover:text-slate-700'
+                  }`}
+                  title={hideBalance ? 'Hiện số dư' : 'Ẩn số dư bảo mật'}
                 >
                   <Lock className="h-4 w-4" />
                 </button>
@@ -430,12 +461,12 @@ export const DashboardPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50 font-medium">
-                  {tableProducts.map((p, idx) => {
+                  {displayRows.map((p, idx) => {
                     const isSelected = selectedRowIndex === idx;
                     return (
                       <tr
                         key={p.id}
-                        onClick={() => setSelectedRowIndex(idx)}
+                        onClick={() => handleSelectRow(idx)}
                         className={`cursor-pointer transition-all ${isSelected
                             ? 'bg-[#4361ee] text-white shadow-md shadow-blue-500/25 rounded-2xl'
                             : 'hover:bg-slate-50/80 text-slate-700'
@@ -447,7 +478,7 @@ export const DashboardPage: React.FC = () => {
                             <input
                               type="checkbox"
                               checked={isSelected}
-                              onChange={() => setSelectedRowIndex(idx)}
+                              onChange={() => handleSelectRow(idx)}
                               className="rounded border-slate-300 text-[#4361ee] focus:ring-[#4361ee]"
                             />
                             <span className={isSelected ? 'text-white font-bold' : 'text-slate-400'}>

@@ -50,6 +50,21 @@ public class TransactionController {
     }
 
     /**
+     * Simulates or processes a SePay / VietQR incoming credit webhook.
+     * Authenticated users can simulate receiving payments into their account.
+     */
+    @PostMapping("/sepay-simulate")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("isAuthenticated()")
+    public ApiResponse<TransactionResponse> simulateSepayWebhook(
+            @Valid @RequestBody DepositRequest request,
+            @AuthenticationPrincipal BankingUserDetails currentUser) {
+
+        TransactionResponse response = transactionService.deposit(request, currentUser.getUserId());
+        return ApiResponse.success("Tín hiệu SePay Webhook đã xử lý và cộng tiền thành công", response);
+    }
+
+    /**
      * Teller cash withdrawal from a customer account. Only STAFF and ADMIN may perform withdrawals.
      */
     @PostMapping("/withdraw")
