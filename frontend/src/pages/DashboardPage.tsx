@@ -1,19 +1,34 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   ArrowDownLeft,
+  ArrowLeftRight,
   ArrowUpRight,
+  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Copy,
+  CreditCard,
+  Eye,
+  EyeOff,
   FileText,
   Filter,
   Lock,
   MoreHorizontal,
+  Plus,
+  QrCode,
+  Radio,
   Send,
   ShoppingBag,
+  Sparkles,
+  TrendingDown,
+  TrendingUp,
   Tv,
   Utensils,
+  Wallet,
+  Zap,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { accountApi, transactionApi } from '../api/bankingApi';
@@ -23,15 +38,20 @@ import { VietQRModal } from '../components/VietQRModal';
 
 export const DashboardPage: React.FC = () => {
   const { user, customer } = useAuth();
+  const { t } = useTranslation();
 
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<TransactionRecord[]>([]);
   const [selectedRowIndex, setSelectedRowIndex] = useState<number>(1);
+  const [activeAccIdx, setActiveAccIdx] = useState(0);
   const [hideBalance, setHideBalance] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [selectedAccForQr, setSelectedAccForQr] = useState<BankAccount | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
+      setLoading(true);
       try {
         if (customer?.id) {
           const accRes = await accountApi.getByCustomer(customer.id);
@@ -44,12 +64,23 @@ export const DashboardPage: React.FC = () => {
         }
       } catch {
         /* noop */
+      } finally {
+        setLoading(false);
       }
     };
     loadData();
   }, [customer?.id]);
 
-  const primaryAcc = accounts[0];
+  const primaryAcc = accounts[activeAccIdx] ?? accounts[0];
+  const totalBalance = accounts
+    .filter((a) => a.status !== 'CLOSED')
+    .reduce((sum, a) => sum + Number(a.balance), 0);
+
+  const copyText = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(text);
+    setTimeout(() => setCopiedId(null), 1500);
+  };
 
   // Mock table products aligned with the screenshot
   const tableProducts = [
@@ -159,8 +190,8 @@ export const DashboardPage: React.FC = () => {
                   {hideBalance
                     ? '••••••••'
                     : primaryAcc
-                    ? formatCurrency(Number(primaryAcc.balance), primaryAcc.currency)
-                    : '$16,750.00'}
+                      ? formatCurrency(Number(primaryAcc.balance), primaryAcc.currency)
+                      : '$16,750.00'}
                 </div>
                 <div className="text-[11px] text-white/70 font-medium mt-0.5">
                   Revenue <span className="font-bold text-emerald-300">+15%</span> from last week
@@ -240,9 +271,8 @@ export const DashboardPage: React.FC = () => {
                     >
                       <div className="flex items-center gap-3">
                         <div
-                          className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${
-                            isIn ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-slate-600'
-                          }`}
+                          className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${isIn ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-slate-600'
+                            }`}
                         >
                           {isIn ? <ArrowDownLeft className="h-4.5 w-4.5" /> : <ArrowUpRight className="h-4.5 w-4.5" />}
                         </div>
@@ -256,9 +286,8 @@ export const DashboardPage: React.FC = () => {
                         </div>
                       </div>
                       <div
-                        className={`text-xs font-black tabular-nums ${
-                          isIn ? 'text-emerald-600' : 'text-slate-900'
-                        }`}
+                        className={`text-xs font-black tabular-nums ${isIn ? 'text-emerald-600' : 'text-slate-900'
+                          }`}
                       >
                         {isIn ? '+' : '-'}${Number(tx.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                       </div>
@@ -407,11 +436,10 @@ export const DashboardPage: React.FC = () => {
                       <tr
                         key={p.id}
                         onClick={() => setSelectedRowIndex(idx)}
-                        className={`cursor-pointer transition-all ${
-                          isSelected
+                        className={`cursor-pointer transition-all ${isSelected
                             ? 'bg-[#4361ee] text-white shadow-md shadow-blue-500/25 rounded-2xl'
                             : 'hover:bg-slate-50/80 text-slate-700'
-                        }`}
+                          }`}
                       >
                         {/* No. with checkbox */}
                         <td className="py-3.5 px-3">
@@ -470,13 +498,12 @@ export const DashboardPage: React.FC = () => {
                         {/* 7 days period SVG sparkline */}
                         <td className="py-3.5 px-3">
                           <svg
-                            className={`w-24 h-6 ${
-                              isSelected
+                            className={`w-24 h-6 ${isSelected
                                 ? 'stroke-white fill-none'
                                 : p.isPositive
-                                ? 'stroke-emerald-500 fill-none'
-                                : 'stroke-rose-400 fill-none'
-                            }`}
+                                  ? 'stroke-emerald-500 fill-none'
+                                  : 'stroke-rose-400 fill-none'
+                              }`}
                             viewBox="0 0 100 25"
                           >
                             <path

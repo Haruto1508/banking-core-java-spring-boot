@@ -5,12 +5,14 @@ import {
   ArrowDownLeft,
   ArrowLeftRight,
   ArrowUpRight,
+  Bell,
   ChevronDown,
   LogOut,
   PlusCircle,
   QrCode,
   Receipt,
   Search,
+  Store,
   User,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -76,11 +78,10 @@ export const TellerLayout: React.FC = () => {
                   <NavLink
                     key={tab}
                     to={to}
-                    className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
-                      isActive
-                        ? 'bg-[#4361ee]/10 text-[#4361ee] font-bold'
-                        : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
-                    }`}
+                    className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${isActive
+                      ? 'bg-[#4361ee]/10 text-[#4361ee] font-bold'
+                      : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                      }`}
                   >
                     <Icon className="h-4.5 w-4.5 shrink-0" />
                     <span>{label}</span>
@@ -99,10 +100,9 @@ export const TellerLayout: React.FC = () => {
               <NavLink
                 to="/teller/profile"
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
-                    isActive
-                      ? 'bg-[#4361ee]/10 text-[#4361ee] font-bold'
-                      : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                  `flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${isActive
+                    ? 'bg-[#4361ee]/10 text-[#4361ee] font-bold'
+                    : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
                   }`
                 }
               >

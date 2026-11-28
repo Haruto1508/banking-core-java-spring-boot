@@ -4,15 +4,20 @@ import { useTranslation } from 'react-i18next';
 import {
   ArrowLeftRight,
   Bell,
+  CheckCircle2,
   ChevronDown,
   CreditCard,
+  FileText,
   Home,
   LogOut,
   PlusCircle,
   QrCode,
   Radio,
   Search,
+  Settings,
+  Sparkles,
   User,
+  Wallet,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { LanguageSwitcher } from './LanguageSwitcher';

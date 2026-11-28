@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate, useSearchParams } from 'reac
 import { useTranslation } from 'react-i18next';
 import {
   Activity,
+  Bell,
   ChevronDown,
   FileText,
   LogOut,
@@ -10,6 +11,7 @@ import {
   RotateCcw,
   Scale,
   Search,
+  ShieldAlert,
   User,
   Vault,
   Wallet,

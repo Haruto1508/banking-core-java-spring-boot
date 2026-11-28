@@ -400,7 +400,7 @@ export const AdminDashboardPage: React.FC = () => {
                 {
                   title: t('admin.postgresDb'),
                   sub: t('admin.postgresDbDesc'),
-                  status: 'UP · 5432',
+                  status: 'UP · 5433',
                   icon: Database,
                   color: 'from-teal-500 to-emerald-600',
                   badge: 'bg-emerald-50 text-emerald-700 border-emerald-200',

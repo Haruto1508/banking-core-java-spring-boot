@@ -4,7 +4,7 @@ spring:
       on-profile: dev
 
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/core_banking}
+    url: ${DB_URL:jdbc:postgresql://localhost:5433/core_banking}
     username: ${DB_USERNAME:banking_admin}
     password: ${DB_PASSWORD:banking_secret_password}
     driver-class-name: org.postgresql.Driver
